@@ -58,57 +58,6 @@ onAuthStateChanged(auth, (user) => {
 // --- END OF FIREBASE LOGIN SETUP ---
 
 
-// --- TEMPORARY MAGIC SCRIPT TO IMPORT LOCAL MOVIES ---
-import { addDoc, collection } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-const importBtn = document.getElementById('import-btn');
-
-if (importBtn) {
-  importBtn.addEventListener('click', async () => {
-    // 1. Check if you are logged in
-    if (!currentUser) {
-      alert("Please login with Google first!");
-      return;
-    }
-
-    // 2. Grab the movies from your browser's local memory
-    // NOTE: Change 'movies' if your app used a different name to save them locally!
-    const localData = localStorage.getItem('movies'); 
-    
-    if (!localData) {
-      alert("I couldn't find the local movies. Did you clear your browser data?");
-      return;
-    }
-
-    const localMovies = JSON.parse(localData);
-    let count = 0;
-
-    // 3. Change button text so you know it's working
-    importBtn.disabled = true;
-    importBtn.textContent = "⏳ Teleporting 700 movies... Please wait!";
-
-    // 4. Loop through every single movie and send it to Firebase
-    for (const movie of localMovies) {
-      try {
-        await addDoc(collection(db, "users", currentUser.uid, "movies"), {
-          // I am copying the standard fields. If your old code had more details (like 'director' or 'year'), add them here!
-          title: movie.title || "Unknown Title",
-          rating: movie.rating || 0,
-          timestamp: new Date() 
-        });
-        count++;
-      } catch (error) {
-        console.error("Failed to teleport a movie:", error);
-      }
-    }
-
-    // 5. Success!
-    alert(`🎉 Success! Teleported ${count} movies to the Cloud!`);
-    importBtn.textContent = "✅ Import Complete!";
-  });
-}
-// --- END OF MAGIC SCRIPT ---
-
 
 // (Your existing app.js code should continue right down here...)
 
