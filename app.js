@@ -1,3 +1,64 @@
+// --- FIREBASE LOGIN SETUP (Must be at the very top) ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC5rtNbMp2GY9myxCiausHBp1c9jUliXbk",
+  authDomain: "sebas-reviews.firebaseapp.com",
+  projectId: "sebas-reviews",
+  storageBucket: "sebas-reviews.firebasestorage.app",
+  messagingSenderId: "155619440463",
+  appId: "1:155619440463:web:af3382d4ae1f3141edb73a",
+  measurementId: "G-6B779X2HJV"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+// Get the buttons from your HTML
+const loginBtn = document.getElementById('login-btn');
+const logoutBtn = document.getElementById('logout-btn');
+const appContent = document.getElementById('app-content');
+
+export let currentUser = null;
+
+// Handle Login
+if(loginBtn) {
+    loginBtn.addEventListener('click', () => {
+      signInWithPopup(auth, provider).catch(error => console.error("Login failed:", error));
+    });
+}
+
+// Handle Logout
+if(logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      signOut(auth);
+    });
+}
+
+// Listen for User Status
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUser = user;
+    loginBtn.style.display = 'none';
+    logoutBtn.style.display = 'inline-block';
+    appContent.style.display = 'block'; // Show the app!
+    console.log("Welcome,", user.email);
+  } else {
+    currentUser = null;
+    loginBtn.style.display = 'inline-block';
+    logoutBtn.style.display = 'none';
+    appContent.style.display = 'none'; // Hide the app behind the login wall
+  }
+});
+// --- END OF FIREBASE LOGIN SETUP ---
+
+// (Your existing app.js code should continue right down here...)
+
 const TMDB_API_KEY = '0de9856190bca7ec5acd797969c1d952'; // <-- PUT YOUR NEW KEY HERE
 
 const db = new Dexie("SebasReviewsDB");
