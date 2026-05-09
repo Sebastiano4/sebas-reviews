@@ -200,10 +200,23 @@ async function loadMoreMovies(){
     const newMovies = await getFilteredMovies(currentOffset, BATCH_SIZE);
     const gallery = document.getElementById('gallery');
     newMovies.forEach(m => {
-        const card = document.createElement('div'); card.className='movie-card';
-        card.innerHTML = `<div class="poster-container" onclick="openReview('${m.id}')"><img src="${m.poster}" loading="lazy"></div>
-        <div class="card-info"><h3>${m.title}</h3><div class="quick-tools"><span style="color:var(--accent);">★ ${m.rating||'-'}</span>
-        ${m.isWatchlist ? `<button class="btn-quick" onclick="moveToArchive('${m.id}')">DONE</button>` : `<button class="btn-quick" onclick="quickEdit('${m.id}')">VOTE</button>`}</div></div>`;
+        const card = document.createElement('div');
+        card.className = 'movie-card';
+        card.innerHTML = `
+            <div class="poster-container">
+                <img src="${m.poster}" loading="lazy">
+            </div>
+            <div class="card-info">
+                <h3>${m.title}</h3>
+                <div class="quick-tools">
+                    <span style="color:var(--accent);">★ ${m.rating||'-'}</span>
+                </div>
+            </div>
+        `;
+
+        // Click su tutta la card → apre la modale di recensione
+        card.addEventListener('click', () => window.openReview(m.id));
+
         gallery.appendChild(card);
     });
     currentOffset += BATCH_SIZE;
