@@ -115,8 +115,6 @@ if (importBtn) {
 const TMDB_API_KEY = '0de9856190bca7ec5acd797969c1d952'; // <-- PUT YOUR NEW KEY HERE
 
 
-db.version(4).stores({ movies: '++id, title, rating, watchDate, plot, poster, backdrop, year, director, genres, runtime, fileType, fileData, isWatchlist, *awards' });
-
 let currentMovieId = null, currentSelectedMovieExtras = {}, ratingChartInstance = null;
 let isLoading = false, hasMore = true, currentOffset = 0, BATCH_SIZE = 20;
 let currentFilters = { search: '', director: '', year: '', genre: '', award: '', rating: '', hasReview: false, sort: 'newest_added', decade: '' };
