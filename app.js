@@ -114,7 +114,7 @@ if (importBtn) {
 
 const TMDB_API_KEY = '0de9856190bca7ec5acd797969c1d952'; // <-- PUT YOUR NEW KEY HERE
 
-const db = new Dexie("SebasReviewsDB");
+
 db.version(4).stores({ movies: '++id, title, rating, watchDate, plot, poster, backdrop, year, director, genres, runtime, fileType, fileData, isWatchlist, *awards' });
 
 let currentMovieId = null, currentSelectedMovieExtras = {}, ratingChartInstance = null;
