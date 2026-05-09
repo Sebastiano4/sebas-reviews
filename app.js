@@ -518,3 +518,13 @@ function populateFilters(movies) {
 
 const observer = new IntersectionObserver(entries => { if(entries[0].isIntersecting) loadMoreMovies(); }, { threshold:0.1 });
 observer.observe(document.getElementById('sentinel'));
+
+
+document.getElementById('resetArchiveBtn')?.addEventListener('click', async () => {
+    if (!currentUser) return;
+    if (!confirm("Are you sure you want to delete ALL movies? This cannot be undone.")) return;
+    const snap = await getDocs(collection(db, "users", currentUser.uid, "movies"));
+    await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "users", currentUser.uid, "movies", d.id))));
+    alert("Archive cleared!");
+    renderGallery();
+});
