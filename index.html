@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seba's Reviews | Cinema Sanctuary</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="brand">
+        <h1 class="logo">SEBA'S <span>REVIEWS</span></h1>
+        <div id="globalCounters" class="nav-subtitle">0 Watched | 0 To Watch</div>
+    </div>
+    <div class="nav-actions">
+        <button id="statsBtn" class="btn-primary" style="background: #1e293b;">📊 Vault</button>
+        <select id="viewMode" class="filter-select">
+            <option value="archive">View Archive</option>
+            <option value="watchlist">View Watchlist</option>
+        </select>
+        <input type="text" id="mainSearch" placeholder="Search titles or awards...">
+        <button id="addBtn" class="btn-primary">+ New Entry</button>
+    </div>
+</nav>
+
+<div class="advanced-filters">
+    <select id="filterYear" class="filter-select"><option value="">All Years</option></select>
+    <input type="text" id="filterDirector" class="filter-select" list="directorOptions" placeholder="Search Director...">
+    <datalist id="directorOptions"></datalist>
+    <select id="filterGenre" class="filter-select"><option value="">All Genres</option></select>
+    <select id="filterAward" class="filter-select">
+        <option value="">Any Award</option>
+	<option value="none">❌ No Award</option>
+        <option value="🎥 Cinematography">🎥 Cinematography</option>
+        <option value="📝 Screenplay">📝 Screenplay</option>
+        <option value="🎭 Performance">🎭 Performance</option>
+        <option value="🎵 Score">🎵 Score</option>
+        <option value="🤯 Mind-Bending">🤯 Mind-Bending</option>
+        <option value="🥹 Emotional">🥹 Emotional</option>
+    </select>
+    <label class="filter-checkbox"><input type="checkbox" id="filterHasReview"> 📝 Written Only</label>
+    <select id="filterRating" class="filter-select">
+        <option value="">Any Rating</option>
+        <option value="10">10/10 Only</option>
+        <option value="9">9.0+</option>
+        <option value="8">8.0+</option>
+    </select>
+    <select id="sortOrder" class="filter-select">
+        <option value="newest_added">Newest Added</option>
+        <option value="highest_rated">Highest Rated</option>
+        <option value="year_new">Year (Newest)</option>
+        <option value="year_old">Year (Oldest)</option>
+    </select>
+    <button id="resetFiltersBtn" class="btn-primary" style="background: var(--border);">Reset</button>
+</div>
+
+<div class="decade-filters">
+    <span style="color: var(--text-muted); margin-right: 10px;">📅 Decade:</span>
+    <button class="decade-btn" data-decade="">All</button>
+    <button class="decade-btn" data-decade="1970">1970s</button>
+    <button class="decade-btn" data-decade="1980">1980s</button>
+    <button class="decade-btn" data-decade="1990">1990s</button>
+    <button class="decade-btn" data-decade="2000">2000s</button>
+    <button class="decade-btn" data-decade="2010">2010s</button>
+    <button class="decade-btn" data-decade="2020">2020s</button>
+</div>
+
+<div id="recommendationsSection" class="recommendations-container" style="display: none;">
+    <h3 class="recommend-title">🎬 YOU MIGHT ALSO LIKE</h3>
+    <div id="recommendGrid" class="movie-grid mini-grid"></div>
+</div>
+
+<main id="app">
+    <section id="spotlightHeader" class="spotlight-section" style="display:none;">
+        <div id="spotlightBackdrop" class="spotlight-bg"></div>
+        <div class="spotlight-content">
+            <h4 style="color: var(--accent); font-family: 'Cinzel', serif;">FEATURED FROM YOUR ARCHIVE</h4>
+            <h1 id="spotlightTitle"></h1>
+            <p id="spotlightDirector"></p>
+        </div>
+    </section>
+    <div id="gallery" class="movie-grid"></div>
+    <div id="sentinel" style="height: 20px;"></div>
+</main>
+
+<!-- Modale aggiunta/modifica -->
+<div id="modal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><h2 id="modalTitle">Add to Archive</h2>
+<form id="movieForm"><div class="search-container"><input type="text" id="tmdbSearch" placeholder="Search TMDB..."><div id="searchResults" class="autocomplete-dropdown"></div></div>
+<input type="hidden" id="tmdbPoster"><input type="hidden" id="tmdbPlot"><input type="hidden" id="tmdbTitle">
+<div class="selected-movie-preview" id="moviePreview" style="display:none;"><img id="previewPoster"><div class="preview-details"><h3 id="previewTitle"></h3><p id="previewPlot"></p></div></div>
+<div class="form-row"><label><input type="checkbox" id="isWatchlist"> Add to Watchlist</label></div>
+<div id="reviewFields"><div class="form-row"><input type="number" id="rating" placeholder="Rating (0-10)" step="0.5"><input type="date" id="watchDate"></div>
+<div class="seba-awards-wrapper">
+    <p>The Seba Awards:</p>
+    <div id="awardsContainer">
+        <label class="award-label"><input type="checkbox" class="seba-award" value="🎥 Cinematography">🎥 Cinematography</label>
+        <label class="award-label"><input type="checkbox" class="seba-award" value="📝 Screenplay">📝 Screenplay</label>
+        <label class="award-label"><input type="checkbox" class="seba-award" value="🎭 Performance">🎭 Performance</label>
+        <label class="award-label"><input type="checkbox" class="seba-award" value="🎵 Score">🎵 Score</label>
+        <label class="award-label"><input type="checkbox" class="seba-award" value="🤯 Mind-Bending">🤯 Mind-Bending</label>
+        <label class="award-label"><input type="checkbox" class="seba-award" value="🥹 Emotional">🥹 Emotional</label>
+    </div>
+</div>
+<div class="file-upload-wrapper"><label>Review File:</label><input type="file" id="reviewFile" accept=".pdf, .html"></div></div>
+<button type="submit" class="btn-save">Save Entry</button></form></div></div>
+
+<!-- Modale recensione -->
+<div id="reviewModal" class="modal"><div id="dynamicBackdrop" class="review-backdrop"></div><div class="modal-content review-content"><span class="close-review">&times;</span>
+<div class="review-header"><h2 id="viewTitle"></h2><div id="viewRating" class="rating-badge"></div></div>
+<div id="viewMetadata" class="movie-metadata"></div><p id="viewPlot" class="plot-text"></p><div id="viewAwards" class="card-awards"></div>
+<div class="review-actions"><button id="editBtn" class="btn-primary">Edit</button><button id="deleteBtn" class="btn-primary">Delete</button><button id="trailerBtn" class="btn-primary" style="background:#2c3e66;">🎬 Trailer</button></div>
+<hr><div id="reviewContainer" class="document-container"></div>
+<div id="similarMoviesContainer" style="margin-top: 20px;"><h4>🎞️ Similar Films</h4><div id="similarGrid" class="movie-grid mini-grid"></div></div>
+</div></div>
+
+<!-- Modale statistiche -->
+<div id="statsModal" class="modal"><div class="modal-content review-content" style="max-width: 1000px;"><span class="close-stats">&times;</span><h2 style="text-align:center;">Cinema Stats Vault</h2>
+<div class="stats-grid"><div class="stat-card"><h3 id="statTotalMovies">0</h3><p>Watched</p></div><div class="stat-card"><h3 id="statTotalHours">0h</h3><p>Total Time</p></div><div class="stat-card"><h3 id="statAvgRating">0.0</h3><p>Mean Score</p></div><div class="stat-card"><h3 id="statMedian">0.0</h3><p>Median Score</p></div></div>
+<div class="advanced-stats-row"><div class="stat-mini"><strong>Std Deviation:</strong> <span id="statStdDev">0.0</span></div><div class="stat-mini"><strong>Written Reviews:</strong> <span id="statReviewsCount">0</span></div></div>
+<div style="margin:20px 0;"><canvas id="ratingChart" height="120"></canvas></div>
+<div class="stats-directors"><h3>👑 Top Directors</h3><div id="topDirectorsList"></div></div>
+<div class="stats-genres"><h3>⭐ Highest Rated Genres</h3><div id="topGenresList"></div></div>
+<div class="stats-time"><h3>⏱️ Total Watch Time by Director</h3><div id="directorTimeList"></div></div>
+<div class="importer-section"><h3>Letterboxd Importer</h3><input type="file" id="csvFileInput" accept=".csv" style="display:none;"><button id="importCsvBtn" class="btn-primary">Select CSV</button><div id="importProgress" style="display:none;"><p id="importStatus"></p><div style="background:#000;"><div id="importProgressBar" style="width:0%;height:4px;background:var(--accent);"></div></div></div></div>
+</div></div>
+
+<!-- Modale trailer -->
+<div id="trailerModal" class="modal"><div class="modal-content" style="max-width: 800px;"><span class="close-trailer">&times;</span><h3>🎥 Trailer</h3><iframe id="trailerIframe" width="100%" height="400" frameborder="0" allowfullscreen></iframe></div></div>
+
+<script src="app.js"></script>
+</body>
+</html>
