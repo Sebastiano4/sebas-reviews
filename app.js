@@ -467,6 +467,7 @@ document.getElementById('csvFileInput').onchange = (e) => {
 
 window.quickEdit = async (id) => { const v=prompt("New rating:"); if(v) await updateDoc(doc(db, "users", currentUser.uid, "movies", id), {rating: parseFloat(v)}); renderGallery(); };
 window.moveToArchive = async (id) => { const v=prompt("Final rating:"); if(v) await updateDoc(doc(db, "users", currentUser.uid, "movies", id), {isWatchlist: false, rating: parseFloat(v), watchDate: new Date().toISOString().split('T')[0]}); renderGallery(); };
+window.openReview = openReview;
 
 function populateFilters(movies) {
     const years = [...new Set(movies.map(m => m.year))].filter(y => y && y !== 'N/A').sort().reverse();
