@@ -200,6 +200,7 @@ async function loadMoreMovies(){
     const newMovies = await getFilteredMovies(currentOffset, BATCH_SIZE);
     const gallery = document.getElementById('gallery');
     newMovies.forEach(m => {
+        // Crea la card
         const card = document.createElement('div');
         card.className = 'movie-card';
         card.innerHTML = `
@@ -210,12 +211,35 @@ async function loadMoreMovies(){
                 <h3>${m.title}</h3>
                 <div class="quick-tools">
                     <span style="color:var(--accent);">★ ${m.rating||'-'}</span>
+                    <button class="btn-quick vote-btn">VOTE</button>
                 </div>
             </div>
         `;
 
-        // Click su tutta la card → apre la modale di recensione
+        // Click sull’intera card → apre la modale di recensione
         card.addEventListener('click', () => window.openReview(m.id));
+
+        // Pulsante VOTE (presente su tutti i film)
+        const voteBtn = card.querySelector('.vote-btn');
+        voteBtn.addEventListener('click', async (e) => {
+            e.stopPropagation(); // non apre la recensione
+            const newRating = prompt(`Rating for "${m.title}" (0-10):`, m.rating || '');
+            if (newRating && !isNaN(parseFloat(newRating))) {
+                const rating = parseFloat(newRating);
+                if (m.isWatchlist) {
+                    // Sposta in archivio con voto e data odierna
+                    await updateDoc(doc(db, "users", currentUser.uid, "movies", m.id), {
+                        rating,
+                        isWatchlist: false,
+                        watchDate: new Date().toISOString().split('T')[0]
+                    });
+                } else {
+                    // Aggiorna solo il voto
+                    await updateDoc(doc(db, "users", currentUser.uid, "movies", m.id), { rating });
+                }
+                renderGallery(); // ricarica la griglia per mostrare il cambiamento
+            }
+        });
 
         gallery.appendChild(card);
     });
