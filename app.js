@@ -4,13 +4,13 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 import { getFirestore, collection, addDoc, getDocs, getDoc, query, doc, deleteDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyC5rtNbMp2GY9myxCiausHBp1c9jUliXbk",
-  authDomain: "sebas-reviews.firebaseapp.com",
-  projectId: "sebas-reviews",
-  storageBucket: "sebas-reviews.firebasestorage.app",
-  messagingSenderId: "155619440463",
-  appId: "1:155619440463:web:af3382d4ae1f3141edb73a",
-  measurementId: "G-6B779X2HJV"
+    apiKey: "AIzaSyC5rtNbMp2GY9myxCiausHBp1c9jUliXbk",
+    authDomain: "sebas-reviews.firebaseapp.com",
+    projectId: "sebas-reviews",
+    storageBucket: "sebas-reviews.firebasestorage.app",
+    messagingSenderId: "155619440463",
+    appId: "1:155619440463:web:af3382d4ae1f3141edb73a",
+    measurementId: "G-6B779X2HJV"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -18,7 +18,7 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-// --- GLOBALI ---
+// --- GLOBALS ---
 const TMDB_API_KEY = '0de9856190bca7ec5acd797969c1d952';
 export let currentUser = null;
 let currentMovieId = null, currentSelectedMovieExtras = {}, ratingChartInstance = null;
@@ -34,20 +34,20 @@ const loginBtn = document.getElementById('login-btn'), logoutBtn = document.getE
 
 // --- AUTH ---
 onAuthStateChanged(auth, (user) => {
-  if (user) {
-    currentUser = user;
-    loginBtn.style.display = 'none';
-    logoutBtn.style.display = 'inline-block';
-    appContent.style.display = 'block';
-    renderGallery();
-    startDynamicSpotlight();
-  } else {
-    currentUser = null;
-    loginBtn.style.display = 'inline-block';
-    logoutBtn.style.display = 'none';
-    appContent.style.display = 'none';
-    if(spotlightInterval) clearInterval(spotlightInterval);
-  }
+    if (user) {
+        currentUser = user;
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'inline-block';
+        appContent.style.display = 'block';
+        renderGallery();
+        startDynamicSpotlight();
+    } else {
+        currentUser = null;
+        loginBtn.style.display = 'inline-block';
+        logoutBtn.style.display = 'none';
+        appContent.style.display = 'none';
+        if(spotlightInterval) clearInterval(spotlightInterval);
+    }
 });
 
 if(loginBtn) loginBtn.addEventListener('click', () => signInWithPopup(auth, provider));
@@ -64,14 +64,13 @@ const getRuntimeMinutes = (runtime) => {
     return match ? parseInt(match[0], 10) : 105;
 };
 
-// Helper per scaricare tutti i film dal cloud
 async function fetchAllMovies() {
     if (!currentUser) return [];
     const snap = await getDocs(collection(db, "users", currentUser.uid, "movies"));
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-// --- TMDB SEARCH (Ripristinato Regista e Crediti) ---
+// --- TMDB SEARCH ---
 tmdbSearch.addEventListener('input', (e) => {
     clearTimeout(timeoutId);
     const q = e.target.value;
@@ -114,7 +113,17 @@ async function fetchMovieDetailsAndSelect(movieId){
     searchResults.innerHTML = '';
 }
 
-// --- SALVATAGGIO ---
+// --- SAVE & FORM LOGIC ---
+function closeForm(){ 
+    modal.style.display='none'; 
+    document.getElementById('movieForm').reset(); 
+    document.getElementById('moviePreview').style.display='none'; 
+    currentMovieId=null; 
+    currentSelectedMovieExtras = {}; 
+}
+
+document.getElementById('addBtn').onclick = () => { closeForm(); modal.style.display='block'; };
+
 document.getElementById('movieForm').onsubmit = async(e)=>{
     e.preventDefault();
     if(!currentUser) return;
@@ -144,8 +153,8 @@ document.getElementById('movieForm').onsubmit = async(e)=>{
     } catch(err) { console.error(err); }
 };
 
-// --- GALLERIA E FILTRI ---
-async function getFilteredMovies(){
+// --- GALLERY & FILTERS ---
+async function getFilteredMovies(offset, limit){
     let movies = await fetchAllMovies();
     const isWatchlistMode = document.getElementById('viewMode').value === 'watchlist';
     const searchTerm = currentFilters.search.toLowerCase();
@@ -153,10 +162,13 @@ async function getFilteredMovies(){
 
     movies = movies.filter(m => {
         if(!!m.isWatchlist !== isWatchlistMode) return false;
-        if(searchTerm && !m.title.toLowerCase().includes(searchTerm)) return false;
+        if(searchTerm && !m.title.toLowerCase().includes(searchTerm) && !(m.awards||[]).some(a=>a.toLowerCase().includes(searchTerm))) return false;
         if(currentFilters.director && m.director && !m.director.toLowerCase().includes(currentFilters.director.toLowerCase())) return false;
         if(currentFilters.year && m.year !== currentFilters.year) return false;
         if(currentFilters.genre && !(m.genres||'').includes(currentFilters.genre)) return false;
+        if(currentFilters.award === 'none' && m.awards && m.awards.length > 0) return false;
+        if(currentFilters.award && currentFilters.award !== 'none' && !(m.awards||[]).includes(currentFilters.award)) return false;
+        if(currentFilters.hasReview && !m.fileData) return false;
         if(currentFilters.rating && m.rating < parseFloat(currentFilters.rating)) return false;
         if(decade){ const y = parseInt(m.year); if(isNaN(y) || y < parseInt(decade) || y > parseInt(decade)+9) return false; }
         return true;
@@ -168,7 +180,8 @@ async function getFilteredMovies(){
     else if(sort === 'year_old') movies.sort((a,b)=>parseInt(a.year)-parseInt(b.year));
     else movies.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
-    return movies;
+    hasMore = offset + limit < movies.length;
+    return movies.slice(offset, offset + limit);
 }
 
 async function renderGallery(){ 
@@ -179,14 +192,13 @@ async function renderGallery(){
     resetInfiniteScroll();
 }
 
-function resetInfiniteScroll(){ document.getElementById('gallery').innerHTML=''; loadMoreMovies(); }
+function resetInfiniteScroll(){ currentOffset = 0; hasMore = true; document.getElementById('gallery').innerHTML=''; loadMoreMovies(); }
 
 async function loadMoreMovies(){
-    if(isLoading) return;
+    if(isLoading || !hasMore) return;
     isLoading = true;
-    const newMovies = await getFilteredMovies();
+    const newMovies = await getFilteredMovies(currentOffset, BATCH_SIZE);
     const gallery = document.getElementById('gallery');
-    gallery.innerHTML = '';
     newMovies.forEach(m => {
         const card = document.createElement('div'); card.className='movie-card';
         card.innerHTML = `<div class="poster-container" onclick="openReview('${m.id}')"><img src="${m.poster}" loading="lazy"></div>
@@ -194,10 +206,11 @@ async function loadMoreMovies(){
         ${m.isWatchlist ? `<button class="btn-quick" onclick="moveToArchive('${m.id}')">DONE</button>` : `<button class="btn-quick" onclick="quickEdit('${m.id}')">VOTE</button>`}</div></div>`;
         gallery.appendChild(card);
     });
+    currentOffset += BATCH_SIZE;
     isLoading = false;
 }
 
-// --- REVIEW E EDIT ---
+// --- REVIEW, EDIT, DELETE ---
 async function openReview(id){
     currentMovieId = id;
     const snap = await getDoc(doc(db, "users", currentUser.uid, "movies", id));
@@ -241,27 +254,87 @@ document.getElementById('deleteBtn').onclick = async()=>{
     } 
 };
 
-// --- STATISTICHE AVANZATE (Ripristinate) ---
+// --- SIMILAR MOVIES & RECOMMENDATIONS ---
+async function showSimilarMovies(id){
+    const movies = await fetchAllMovies();
+    const current = movies.find(m => m.id === id);
+    const scored = movies.filter(m => !m.isWatchlist && m.id !== id).map(m => {
+        let s=0; if(m.director === current.director) s+=5; 
+        if(m.genres?.split(', ').some(g => current.genres?.includes(g))) s+=3;
+        return {movie:m, score:s};
+    }).sort((a,b)=>b.score-a.score).slice(0,4);
+    const grid = document.getElementById('similarGrid');
+    grid.innerHTML = '';
+    scored.forEach(({movie})=> grid.appendChild(createSmallCard(movie)));
+}
+
+async function showRecommendations(movies) {
+    const favorites = movies.filter(m => !m.isWatchlist && m.rating >= 8);
+    const watchlist = movies.filter(m => m.isWatchlist);
+    const scored = watchlist.map(w => {
+        let s = 0; favorites.forEach(f => { if(f.director === w.director) s+=5; if(f.genres === w.genres) s+=3; });
+        return { movie: w, score: s };
+    }).sort((a,b)=>b.score - a.score).slice(0,4);
+    const grid = document.getElementById('recommendGrid');
+    grid.innerHTML = '';
+    scored.forEach(({movie}) => grid.appendChild(createSmallCard(movie)));
+}
+
+function createSmallCard(m) {
+    const div = document.createElement('div'); div.className='movie-card'; div.onclick=()=>openReview(m.id);
+    div.innerHTML = `<div class="poster-container"><img src="${m.poster}"></div><div class="card-info"><h3>${m.title}</h3></div>`;
+    return div;
+}
+
+// --- STATS ---
 async function updateAdvancedStats(){
     const movies = await fetchAllMovies();
     const watched = movies.filter(m=>!m.isWatchlist);
     if(!watched.length) return;
+    const ratings = watched.map(m=>m.rating||0);
+    const mins = watched.reduce((sum, m) => sum + getRuntimeMinutes(m.runtime), 0);
     
-    // Director Stats
+    document.getElementById('statTotalMovies').innerText = watched.length;
+    document.getElementById('statTotalHours').innerText = Math.round(mins/60)+"h";
+    document.getElementById('statReviewsCount').innerText = watched.filter(m=>m.fileData).length;
+    document.getElementById('statAvgRating').innerText = (ratings.reduce((a,b)=>a+b)/ratings.length).toFixed(2);
+    document.getElementById('statMedian').innerText = getMedian(ratings).toFixed(1);
+    document.getElementById('statStdDev').innerText = getStdDev(ratings).toFixed(2);
+
     const dirMap = new Map();
     watched.forEach(m => {
-        if(!m.director || m.director==='Unknown') return;
-        if(!dirMap.has(m.director)) dirMap.set(m.director, {count:0, sumRatings:0, runtime:0});
-        const d = dirMap.get(m.director);
-        d.count++; d.sumRatings += m.rating||0; d.runtime += getRuntimeMinutes(m.runtime);
+        if(m.director && m.director!=='Unknown') {
+            if(!dirMap.has(m.director)) dirMap.set(m.director, {count:0, time:0});
+            dirMap.get(m.director).count++;
+            dirMap.get(m.director).time += getRuntimeMinutes(m.runtime);
+        }
     });
-    const topDirs = Array.from(dirMap.entries()).map(([name,data])=>({name, count:data.count, avg:data.sumRatings/data.count, time:data.runtime})).sort((a,b)=>b.count - a.count).slice(0,5);
-    document.getElementById('topDirectorsList').innerHTML = topDirs.map(d=>`<div class="stat-badge"><strong>${d.name}</strong> · ${d.count} films · avg ${d.avg.toFixed(1)}</div>`).join('');
-    
-    // Rating Chart
-    const ratings = watched.map(m=>m.rating||0);
-    document.getElementById('statTotalMovies').innerText = watched.length;
-    document.getElementById('statAvgRating').innerText = (ratings.reduce((a,b)=>a+b)/ratings.length).toFixed(2);
+
+    const topDirs = Array.from(dirMap.entries()).sort((a,b)=>b[1].count - a[1].count).slice(0,5);
+    document.getElementById('topDirectorsList').innerHTML = topDirs.map(([n,d])=>`<div class="stat-badge">${n} · ${d.count} films</div>`).join('');
+    const dirTime = Array.from(dirMap.entries()).sort((a,b)=>b[1].time - a[1].time).slice(0,5);
+    document.getElementById('directorTimeList').innerHTML = dirTime.map(([n,d])=>`<div class="stat-badge">${n} · ${Math.round(d.time/60)}h</div>`).join('');
+
+    // --- GENERI (da te fornito) ---
+    const genreStats = new Map();
+    watched.forEach(m => {
+        if(m.genres) {
+            m.genres.split(', ').forEach(g => {
+                if(!genreStats.has(g)) genreStats.set(g, {sum: 0, count: 0});
+                genreStats.get(g).sum += m.rating || 0;
+                genreStats.get(g).count++;
+            });
+        }
+    });
+    const topGenres = Array.from(genreStats.entries())
+        .map(([name, data]) => ({ name, avg: data.sum / data.count, count: data.count }))
+        .filter(g => g.count >= 2) 
+        .sort((a, b) => b.avg - a.avg)
+        .slice(0, 5);
+    document.getElementById('topGenresList').innerHTML = topGenres.length 
+        ? topGenres.map(g => `<div class="stat-badge">${g.name} · ⭐ ${g.avg.toFixed(1)} (${g.count} film)</div>`).join('')
+        : '<p style="color: var(--text-muted); margin: 0;">Aggiungi più film per vedere i generi preferiti.</p>';
+
     if(ratingChartInstance) ratingChartInstance.destroy();
     const labels=[], counts=new Array(21).fill(0);
     for(let i=0;i<=10;i+=0.5) labels.push(i.toFixed(1));
@@ -270,40 +343,6 @@ async function updateAdvancedStats(){
 }
 
 document.getElementById('statsBtn').onclick = () => { updateAdvancedStats(); statsModal.style.display='block'; };
-
-// --- SUGGERIMENTI E SIMILI ---
-async function showRecommendations(movies) {
-    const favorites = movies.filter(m => !m.isWatchlist && m.rating >= 8);
-    const watchlist = movies.filter(m => m.isWatchlist);
-    const scored = watchlist.map(w => {
-        let s = 0;
-        favorites.forEach(f => { if(f.director === w.director) s+=5; if(f.genres === w.genres) s+=3; });
-        return { movie: w, score: s };
-    }).sort((a,b)=>b.score - a.score).slice(0,4);
-    const grid = document.getElementById('recommendGrid');
-    grid.innerHTML = '';
-    scored.forEach(({movie}) => {
-        const div = document.createElement('div'); div.className='movie-card'; div.onclick=()=>openReview(movie.id);
-        div.innerHTML = `<div class="poster-container"><img src="${movie.poster}"></div><h3>${movie.title}</h3>`;
-        grid.appendChild(div);
-    });
-}
-
-async function showSimilarMovies(id){
-    const movies = await fetchAllMovies();
-    const current = movies.find(m => m.id === id);
-    const scored = movies.filter(m => !m.isWatchlist && m.id !== id).map(m => {
-        let s=0; if(m.director === current.director) s+=5; if(m.genres === current.genres) s+=3;
-        return {movie:m, score:s};
-    }).sort((a,b)=>b.score-a.score).slice(0,4);
-    const grid = document.getElementById('similarGrid');
-    grid.innerHTML = '';
-    scored.forEach(({movie})=> {
-        const div = document.createElement('div'); div.className='movie-card'; div.onclick=()=>openReview(movie.id);
-        div.innerHTML = `<div class="poster-container"><img src="${movie.poster}"></div><h3>${movie.title}</h3>`;
-        grid.appendChild(div);
-    });
-}
 
 // --- SPOTLIGHT ---
 function startDynamicSpotlight() {
@@ -321,17 +360,44 @@ function updateSpotlightAndCounters(movies){
     if(list.length){
         const rand = list[Math.floor(Math.random()*list.length)];
         document.getElementById('spotlightTitle').innerText = rand.title;
+        document.getElementById('spotlightDirector').innerText = `Directed by ${rand.director}`;
         document.getElementById('spotlightBackdrop').style.backgroundImage = `url('${rand.backdrop}')`;
         document.getElementById('spotlightHeader').style.display='flex';
     }
 }
 
-// --- EVENT LISTENERS (Filtri, Modali, ecc.) ---
+// --- LISTENERS & IMPORT ---
 document.getElementById('viewMode').onchange = renderGallery;
-document.getElementById('sortOrder').onchange = renderGallery;
+document.getElementById('sortOrder').onchange = (e) => { currentFilters.sort = e.target.value; renderGallery(); };
 document.getElementById('mainSearch').oninput = (e) => { currentFilters.search = e.target.value; renderGallery(); };
 document.getElementById('filterYear').onchange = (e) => { currentFilters.year = e.target.value; renderGallery(); };
-document.getElementById('resetFiltersBtn').onclick = () => { location.reload(); };
+document.getElementById('filterGenre').onchange = (e) => { currentFilters.genre = e.target.value; renderGallery(); };
+document.getElementById('filterRating').onchange = (e) => { currentFilters.rating = e.target.value; renderGallery(); };
+document.getElementById('filterAward').onchange = (e) => { currentFilters.award = e.target.value; renderGallery(); };
+document.getElementById('filterHasReview').onchange = (e) => { currentFilters.hasReview = e.target.checked; renderGallery(); };
+document.getElementById('filterDirector').oninput = (e) => { currentFilters.director = e.target.value; renderGallery(); };
+
+// --- RESET FILTRI (da te fornito) ---
+document.getElementById('resetFiltersBtn').onclick = () => {
+    // 1. Resetta l'oggetto dei filtri
+    currentFilters = { search: '', director: '', year: '', genre: '', award: '', rating: '', hasReview: false, sort: 'newest_added', decade: '' };
+    
+    // 2. Svuota graficamente tutti gli input
+    document.getElementById('mainSearch').value = '';
+    document.getElementById('filterDirector').value = '';
+    document.getElementById('filterYear').value = '';
+    document.getElementById('filterGenre').value = '';
+    document.getElementById('filterAward').value = '';
+    document.getElementById('filterRating').value = '';
+    document.getElementById('filterHasReview').checked = false;
+    document.getElementById('sortOrder').value = 'newest_added';
+    
+    // 3. Rimuovi classe active dai decenni
+    document.querySelectorAll('.decade-btn').forEach(b => b.classList.remove('active'));
+    
+    // 4. Riesegui il rendering
+    renderGallery();
+};
 
 document.querySelectorAll('.decade-btn').forEach(btn => {
     btn.onclick = () => {
@@ -342,24 +408,18 @@ document.querySelectorAll('.decade-btn').forEach(btn => {
     };
 });
 
-// Chiusura Modali
-document.querySelector('.close-modal').onclick = () => modal.style.display='none';
-document.querySelector('.close-review').onclick = () => reviewModal.style.display='none';
-document.querySelector('.close-stats').onclick = () => statsModal.style.display='none';
-document.querySelector('.close-trailer').onclick = () => document.getElementById('trailerModal').style.display='none';
+// --- GESTIONE MODALI (da te fornito) ---
+document.querySelector('.close-modal').onclick = () => modal.style.display = 'none';
+document.querySelector('.close-review').onclick = () => reviewModal.style.display = 'none';
+document.querySelector('.close-stats').onclick = () => statsModal.style.display = 'none';
+document.querySelector('.close-trailer').onclick = () => document.getElementById('trailerModal').style.display = 'none';
 
-// --- INITIALIZE ---
-const sentinel = document.getElementById('sentinel');
-const observer = new IntersectionObserver(entries => { if(entries[0].isIntersecting) loadMoreMovies(); }, { threshold:0.1 });
-observer.observe(sentinel);
-
-function populateFilters(movies) {
-    const years = [...new Set(movies.map(m => m.year))].filter(y => y && y !== 'N/A').sort().reverse();
-    document.getElementById('filterYear').innerHTML = '<option value="">All Years</option>' + years.map(v => `<option value="${v}">${v}</option>`).join('');
-}
-
-function closeForm(){ modal.style.display='none'; document.getElementById('movieForm').reset(); document.getElementById('moviePreview').style.display='none'; currentMovieId=null; }
-document.getElementById('addBtn').onclick = () => { closeForm(); modal.style.display='block'; };
+window.onclick = (event) => {
+    if (event.target == modal) modal.style.display = "none";
+    if (event.target == reviewModal) reviewModal.style.display = "none";
+    if (event.target == statsModal) statsModal.style.display = "none";
+    if (event.target == document.getElementById('trailerModal')) document.getElementById('trailerModal').style.display = "none";
+};
 
 // --- TRAILER ---
 document.getElementById('trailerBtn')?.addEventListener('click', async ()=>{
@@ -371,24 +431,52 @@ document.getElementById('trailerBtn')?.addEventListener('click', async ()=>{
         const vRes = await fetch(`https://api.themoviedb.org/3/movie/${data.results[0].id}/videos?api_key=${TMDB_API_KEY}`);
         const vData = await vRes.json();
         const t = vData.results.find(v=>v.type==='Trailer' && v.site==='YouTube');
-        if(t){
+        if(t) {
             document.getElementById('trailerIframe').src = `https://www.youtube.com/embed/${t.key}`;
             document.getElementById('trailerModal').style.display = 'block';
         }
     }
 });
 
-async function quickEdit(id){ 
-    const val=prompt("New rating:"); 
-    if(val) await updateDoc(doc(db, "users", currentUser.uid, "movies", id), {rating: parseFloat(val)});
-    renderGallery();
+// --- IMPORT CSV (BASE, con recupero titolo) ---
+document.getElementById('importCsvBtn').onclick = () => document.getElementById('csvFileInput').click();
+document.getElementById('csvFileInput').onchange = (e) => {
+    const file = e.target.files[0];
+    Papa.parse(file, { header: true, complete: async (results) => {
+        for (const row of results.data) {
+            if(!row.Name) continue;
+            try {
+                const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(row.Name)}&year=${row.Year}`);
+                const sData = await res.json();
+                if(sData.results?.length){
+                    const tmdb = sData.results[0];
+                    await addDoc(collection(db, "users", currentUser.uid, "movies"), { 
+                        title: tmdb.title, poster: `https://image.tmdb.org/t/p/w500${tmdb.poster_path}`,
+                        plot: tmdb.overview, rating: row.Rating ? parseFloat(row.Rating)*2 : null,
+                        watchDate: row['Watched Date'] || null, isWatchlist: !row.Rating,
+                        director: 'Unknown', genres: '', runtime: 'N/A', year: tmdb.release_date?.split('-')[0] || row.Year,
+                        awards: [], createdAt: serverTimestamp()
+                    });
+                }
+            } catch(err) { console.error(err); }
+            await new Promise(r => setTimeout(r, 250)); // rate limit
+        }
+        alert("Import complete!"); renderGallery();
+    }});
+};
+
+window.quickEdit = async (id) => { const v=prompt("New rating:"); if(v) await updateDoc(doc(db, "users", currentUser.uid, "movies", id), {rating: parseFloat(v)}); renderGallery(); };
+window.moveToArchive = async (id) => { const v=prompt("Final rating:"); if(v) await updateDoc(doc(db, "users", currentUser.uid, "movies", id), {isWatchlist: false, rating: parseFloat(v), watchDate: new Date().toISOString().split('T')[0]}); renderGallery(); };
+
+function populateFilters(movies) {
+    const years = [...new Set(movies.map(m => m.year))].filter(y => y && y !== 'N/A').sort().reverse();
+    const dirs = [...new Set(movies.map(m => m.director))].filter(d => d && d !== 'Unknown').sort();
+    const genresSet = new Set();
+    movies.forEach(m => m.genres?.split(', ').forEach(g => genresSet.add(g)));
+    document.getElementById('filterYear').innerHTML = '<option value="">All Years</option>' + years.map(v => `<option value="${v}">${v}</option>`).join('');
+    document.getElementById('filterGenre').innerHTML = '<option value="">All Genres</option>' + Array.from(genresSet).sort().map(v => `<option value="${v}">${v}</option>`).join('');
+    document.getElementById('directorOptions').innerHTML = dirs.map(v => `<option value="${v}">`).join('');
 }
 
-async function moveToArchive(id){ 
-    const val=prompt("Final rating:"); 
-    if(val) await updateDoc(doc(db, "users", currentUser.uid, "movies", id), {isWatchlist: false, rating: parseFloat(val), watchDate: new Date().toISOString().split('T')[0]});
-    renderGallery();
-}
-
-window.quickEdit = quickEdit;
-window.moveToArchive = moveToArchive;
+const observer = new IntersectionObserver(entries => { if(entries[0].isIntersecting) loadMoreMovies(); }, { threshold:0.1 });
+observer.observe(document.getElementById('sentinel'));
