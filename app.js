@@ -436,6 +436,20 @@ document.getElementById('resetFiltersBtn').onclick = () => {
     renderGallery();
 };
 
+// --- RESET VAULT ---
+document.getElementById('resetVaultBtn')?.addEventListener('click', async () => {
+    if (!currentUser) return;
+    if (!confirm("Are you sure you want to delete ALL your movies? This cannot be undone.")) return;
+    const snap = await getDocs(collection(db, "users", currentUser.uid, "movies"));
+    const deletions = [];
+    snap.forEach(docSnap => deletions.push(deleteDoc(doc(db, "users", currentUser.uid, "movies", docSnap.id))));
+    await Promise.all(deletions);
+    alert("Archive cleared. The page will now refresh.");
+    renderGallery();
+    // Chiudi il modale delle statistiche dopo il reset
+    document.getElementById('statsModal').style.display = 'none';
+});
+
 document.querySelectorAll('.decade-btn').forEach(btn => {
     btn.onclick = () => {
         document.querySelectorAll('.decade-btn').forEach(b=>b.classList.remove('active'));
