@@ -6,11 +6,16 @@
     <title>Seba's Reviews</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     
-    <header style="padding: 10px; background: #0f172a; text-align: right; border-bottom: 1px solid #1e293b;">
+    <header style="padding: 15px; background: #0f172a; text-align: right; border-bottom: 1px solid #1e293b; display: flex; justify-content: flex-end; gap: 10px;">
         <button id="login-btn" class="btn-primary">Login with Google</button>
         <button id="logout-btn" class="btn-primary" style="display: none; background: #b91c1c;">Logout</button>
     </header>
@@ -93,7 +98,9 @@
             <div id="sentinel" style="height: 20px;"></div>
         </main>
         
-    </div> <div id="modal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><h2 id="modalTitle">Add to Archive</h2>
+    </div> 
+
+    <div id="modal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><h2 id="modalTitle">Add to Archive</h2>
     <form id="movieForm"><div class="search-container"><input type="text" id="tmdbSearch" placeholder="Search TMDB..."><div id="searchResults" class="autocomplete-dropdown"></div></div>
     <input type="hidden" id="tmdbPoster"><input type="hidden" id="tmdbPlot"><input type="hidden" id="tmdbTitle">
     <div class="selected-movie-preview" id="moviePreview" style="display:none;"><img id="previewPoster"><div class="preview-details"><h3 id="previewTitle"></h3><p id="previewPlot"></p></div></div>
