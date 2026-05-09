@@ -493,27 +493,69 @@ document.getElementById('trailerBtn')?.addEventListener('click', async ()=>{
 document.getElementById('importCsvBtn').onclick = () => document.getElementById('csvFileInput').click();
 document.getElementById('csvFileInput').onchange = (e) => {
     const file = e.target.files[0];
-    Papa.parse(file, { header: true, complete: async (results) => {
-        for (const row of results.data) {
-            if(!row.Name) continue;
-            try {
-                const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(row.Name)}&year=${row.Year}`);
-                const sData = await res.json();
-                if(sData.results?.length){
-                    const tmdb = sData.results[0];
-                    await addDoc(collection(db, "users", currentUser.uid, "movies"), { 
-                        title: tmdb.title, poster: `https://image.tmdb.org/t/p/w500${tmdb.poster_path}`,
-                        plot: tmdb.overview, rating: row.Rating ? parseFloat(row.Rating)*2 : null,
-                        watchDate: row['Watched Date'] || null, isWatchlist: !row.Rating,
-                        director: 'Unknown', genres: '', runtime: 'N/A', year: tmdb.release_date?.split('-')[0] || row.Year,
-                        awards: [], createdAt: serverTimestamp()
-                    });
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+            const rows = results.data.filter(row => row.Name);
+            if (rows.length === 0) {
+                alert("No valid rows in CSV.");
+                return;
+            }
+
+            const progressDiv = document.getElementById('importProgress');
+            const statusEl = document.getElementById('importStatus');
+            const barEl = document.getElementById('importProgressBar');
+
+            progressDiv.style.display = 'block';
+            barEl.style.width = '0%';
+            let completed = 0;
+            const total = rows.length;
+
+            for (const row of rows) {
+                statusEl.innerText = `Importing: ${row.Name} (${completed + 1} of ${total})`;
+                barEl.style.width = `${(completed / total) * 100}%`;
+
+                try {
+                    const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(row.Name)}&year=${row.Year}`);
+                    const sData = await res.json();
+                    if (sData.results?.length) {
+                        const tmdb = sData.results[0];
+                        await addDoc(collection(db, "users", currentUser.uid, "movies"), {
+                            title: tmdb.title,
+                            poster: `https://image.tmdb.org/t/p/w500${tmdb.poster_path}`,
+                            plot: tmdb.overview,
+                            rating: row.Rating ? parseFloat(row.Rating) * 2 : null,
+                            watchDate: row['Watched Date'] || null,
+                            isWatchlist: !row.Rating,
+                            director: 'Unknown',
+                            genres: '',
+                            runtime: 'N/A',
+                            year: tmdb.release_date?.split('-')[0] || row.Year,
+                            awards: [],
+                            createdAt: serverTimestamp()
+                        });
+                    }
+                } catch (err) {
+                    console.error(`Error importing ${row.Name}:`, err);
                 }
-            } catch(err) { console.error(err); }
-            await new Promise(r => setTimeout(r, 250)); // rate limit
+
+                completed++;
+                await new Promise(r => setTimeout(r, 250));
+            }
+
+            barEl.style.width = '100%';
+            statusEl.innerText = `Import completed: ${total} movies processed.`;
+
+            setTimeout(() => {
+                progressDiv.style.display = 'none';
+                barEl.style.width = '0%';
+            }, 2500);
+
+            alert("Import complete!");
+            renderGallery();
         }
-        alert("Import complete!"); renderGallery();
-    }});
+    });
 };
 
 window.quickEdit = async (id) => { const v=prompt("New rating:"); if(v) await updateDoc(doc(db, "users", currentUser.uid, "movies", id), {rating: parseFloat(v)}); renderGallery(); };
