@@ -32,6 +32,18 @@ const modal = document.getElementById('modal'), reviewModal = document.getElemen
 const tmdbSearch = document.getElementById('tmdbSearch'), searchResults = document.getElementById('searchResults');
 const loginBtn = document.getElementById('login-btn'), logoutBtn = document.getElementById('logout-btn'), appContent = document.getElementById('app-content');
 
+// --- TOAST NOTIFICATIONS ---
+function showToast(message, duration = 2000) {
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.innerText = message;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'slideOutRight 0.3s ease-out forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
 // --- AUTH ---
 onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -137,7 +149,8 @@ document.getElementById('movieForm').onsubmit = async(e)=>{
         isWatchlist,
         awards: isWatchlist ? [] : Array.from(document.querySelectorAll('.seba-award:checked')).map(cb=>cb.value),
         ...currentSelectedMovieExtras,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        order: Date.now()   // campo per ordinamento drag & drop
     };
     const fileInput = document.getElementById('reviewFile').files[0];
     if(fileInput){ movieData.fileData = await toBase64(fileInput); movieData.fileType = fileInput.type; }
@@ -175,7 +188,10 @@ async function getFilteredMovies(offset, limit){
     });
 
     const sort = currentFilters.sort;
-    if(sort === 'highest_rated') movies.sort((a,b)=>b.rating - a.rating);
+    if (isWatchlistMode && sort === 'newest_added') {
+        // Nella watchlist usa l'ordine manuale (drag & drop)
+        movies.sort((a,b) => (a.order || 0) - (b.order || 0));
+    } else if(sort === 'highest_rated') movies.sort((a,b)=>b.rating - a.rating);
     else if(sort === 'year_new') movies.sort((a,b)=>parseInt(b.year)-parseInt(a.year));
     else if(sort === 'year_old') movies.sort((a,b)=>parseInt(a.year)-parseInt(b.year));
     else movies.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -199,10 +215,18 @@ async function loadMoreMovies(){
     isLoading = true;
     const newMovies = await getFilteredMovies(currentOffset, BATCH_SIZE);
     const gallery = document.getElementById('gallery');
+    const isWatchlistMode = document.getElementById('viewMode').value === 'watchlist';
+
+    // Rimuove precedente istanza Sortable se esiste
+    if (gallery.sortableInstance) {
+        gallery.sortableInstance.destroy();
+        gallery.sortableInstance = null;
+    }
+
     newMovies.forEach(m => {
-        // Crea la card
         const card = document.createElement('div');
-        card.className = 'movie-card';
+        card.className = 'movie-card' + (isWatchlistMode ? ' sortable-card' : '');
+        card.setAttribute('data-id', m.id);
         card.innerHTML = `
             <div class="poster-container">
                 <img src="${m.poster}" loading="lazy">
@@ -222,27 +246,58 @@ async function loadMoreMovies(){
         // Pulsante VOTE (presente su tutti i film)
         const voteBtn = card.querySelector('.vote-btn');
         voteBtn.addEventListener('click', async (e) => {
-            e.stopPropagation(); // non apre la recensione
+            e.stopPropagation();
             const newRating = prompt(`Rating for "${m.title}" (0-10):`, m.rating || '');
             if (newRating && !isNaN(parseFloat(newRating))) {
                 const rating = parseFloat(newRating);
                 if (m.isWatchlist) {
-                    // Sposta in archivio con voto e data odierna
                     await updateDoc(doc(db, "users", currentUser.uid, "movies", m.id), {
                         rating,
                         isWatchlist: false,
                         watchDate: new Date().toISOString().split('T')[0]
                     });
+                    // Se siamo nella watchlist, rimuovi la card con animazione
+                    if (isWatchlistMode) {
+                        card.style.transition = 'opacity 0.3s, transform 0.3s';
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(0.8)';
+                        setTimeout(() => card.remove(), 300);
+                    } else {
+                        // In archivio aggiorna solo il voto visualizzato
+                        const ratingSpan = card.querySelector('.quick-tools span');
+                        if (ratingSpan) ratingSpan.textContent = `★ ${rating}`;
+                    }
                 } else {
-                    // Aggiorna solo il voto
                     await updateDoc(doc(db, "users", currentUser.uid, "movies", m.id), { rating });
+                    const ratingSpan = card.querySelector('.quick-tools span');
+                    if (ratingSpan) ratingSpan.textContent = `★ ${rating}`;
                 }
-                renderGallery(); // ricarica la griglia per mostrare il cambiamento
+                const movies = await fetchAllMovies();
+                updateSpotlightAndCounters(movies);
+                showToast('Rating updated!');
             }
         });
 
         gallery.appendChild(card);
     });
+
+    // Inizializza Sortable solo per la watchlist
+    if (isWatchlistMode && typeof Sortable !== 'undefined') {
+        gallery.sortableInstance = new Sortable(gallery, {
+            animation: 250,
+            ghostClass: 'sortable-ghost',
+            onEnd: async function(evt) {
+                const cards = [...gallery.querySelectorAll('.movie-card[data-id]')];
+                for (let i = 0; i < cards.length; i++) {
+                    const id = cards[i].getAttribute('data-id');
+                    await updateDoc(doc(db, "users", currentUser.uid, "movies", id), { order: i });
+                }
+                // Non serve renderGallery() per non perdere l'ordine corrente
+                showToast('Order saved');
+            }
+        });
+    }
+
     currentOffset += BATCH_SIZE;
     isLoading = false;
 }
@@ -264,13 +319,23 @@ async function openReview(id){
         else cont.innerHTML=`<iframe src="${m.fileData}" width="100%" height="500px"></iframe>`;
     } else cont.innerHTML='<p>No written review.</p>';
     reviewModal.style.display='block';
+    // Modalità focus
+    requestAnimationFrame(() => reviewModal.classList.add('active'));
     showSimilarMovies(id);
 }
+
+// Chiusura modale recensione rimuove l'effetto focus
+const closeReviewModal = () => {
+    reviewModal.classList.remove('active');
+    reviewModal.style.display = 'none';
+};
 
 document.getElementById('editBtn').onclick = async()=>{
     const snap = await getDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
     const m = snap.data();
-    reviewModal.style.display='none'; modal.style.display='block';
+    reviewModal.classList.remove('active'); // in caso
+    reviewModal.style.display='none'; 
+    modal.style.display='block';
     document.getElementById('tmdbTitle').value=m.title;
     document.getElementById('tmdbPlot').value=m.plot;
     document.getElementById('tmdbPoster').value=m.poster;
@@ -287,7 +352,9 @@ document.getElementById('editBtn').onclick = async()=>{
 document.getElementById('deleteBtn').onclick = async()=>{ 
     if(confirm("Delete forever?")){ 
         await deleteDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
-        reviewModal.style.display='none'; renderGallery(); 
+        reviewModal.classList.remove('active');
+        reviewModal.style.display='none'; 
+        renderGallery(); 
     } 
 };
 
@@ -352,7 +419,6 @@ async function updateAdvancedStats(){
     const dirTime = Array.from(dirMap.entries()).sort((a,b)=>b[1].time - a[1].time).slice(0,5);
     document.getElementById('directorTimeList').innerHTML = dirTime.map(([n,d])=>`<div class="stat-badge">${n} · ${Math.round(d.time/60)}h</div>`).join('');
 
-    // --- GENERI (da te fornito) ---
     const genreStats = new Map();
     watched.forEach(m => {
         if(m.genres) {
@@ -370,7 +436,7 @@ async function updateAdvancedStats(){
         .slice(0, 5);
     document.getElementById('topGenresList').innerHTML = topGenres.length 
         ? topGenres.map(g => `<div class="stat-badge">${g.name} · ⭐ ${g.avg.toFixed(1)} (${g.count} film)</div>`).join('')
-        : '<p style="color: var(--text-muted); margin: 0;">Aggiungi più film per vedere i generi preferiti.</p>';
+        : '<p style="color: var(--text-muted); margin: 0;">Add more films to see top rated genres.</p>';
 
     if(ratingChartInstance) ratingChartInstance.destroy();
     const labels=[], counts=new Array(21).fill(0);
@@ -404,7 +470,16 @@ function updateSpotlightAndCounters(movies){
 }
 
 // --- LISTENERS & IMPORT ---
-document.getElementById('viewMode').onchange = renderGallery;
+document.getElementById('viewMode').onchange = () => {
+    // Distruggi Sortable prima di cambiare vista
+    const gallery = document.getElementById('gallery');
+    if (gallery.sortableInstance) {
+        gallery.sortableInstance.destroy();
+        gallery.sortableInstance = null;
+    }
+    renderGallery();
+    startDynamicSpotlight();
+};
 document.getElementById('sortOrder').onchange = (e) => { currentFilters.sort = e.target.value; renderGallery(); };
 document.getElementById('mainSearch').oninput = (e) => { currentFilters.search = e.target.value; renderGallery(); };
 document.getElementById('filterYear').onchange = (e) => { currentFilters.year = e.target.value; renderGallery(); };
@@ -414,12 +489,8 @@ document.getElementById('filterAward').onchange = (e) => { currentFilters.award 
 document.getElementById('filterHasReview').onchange = (e) => { currentFilters.hasReview = e.target.checked; renderGallery(); };
 document.getElementById('filterDirector').oninput = (e) => { currentFilters.director = e.target.value; renderGallery(); };
 
-// --- RESET FILTRI (da te fornito) ---
 document.getElementById('resetFiltersBtn').onclick = () => {
-    // 1. Resetta l'oggetto dei filtri
     currentFilters = { search: '', director: '', year: '', genre: '', award: '', rating: '', hasReview: false, sort: 'newest_added', decade: '' };
-    
-    // 2. Svuota graficamente tutti gli input
     document.getElementById('mainSearch').value = '';
     document.getElementById('filterDirector').value = '';
     document.getElementById('filterYear').value = '';
@@ -428,15 +499,10 @@ document.getElementById('resetFiltersBtn').onclick = () => {
     document.getElementById('filterRating').value = '';
     document.getElementById('filterHasReview').checked = false;
     document.getElementById('sortOrder').value = 'newest_added';
-    
-    // 3. Rimuovi classe active dai decenni
     document.querySelectorAll('.decade-btn').forEach(b => b.classList.remove('active'));
-    
-    // 4. Riesegui il rendering
     renderGallery();
 };
 
-// --- RESET VAULT ---
 document.getElementById('resetVaultBtn')?.addEventListener('click', async () => {
     if (!currentUser) return;
     if (!confirm("Are you sure you want to delete ALL your movies? This cannot be undone.")) return;
@@ -444,10 +510,9 @@ document.getElementById('resetVaultBtn')?.addEventListener('click', async () => 
     const deletions = [];
     snap.forEach(docSnap => deletions.push(deleteDoc(doc(db, "users", currentUser.uid, "movies", docSnap.id))));
     await Promise.all(deletions);
-    alert("Archive cleared. The page will now refresh.");
-    renderGallery();
-    // Chiudi il modale delle statistiche dopo il reset
+    showToast('Archive cleared!');
     document.getElementById('statsModal').style.display = 'none';
+    renderGallery();
 });
 
 document.querySelectorAll('.decade-btn').forEach(btn => {
@@ -459,15 +524,15 @@ document.querySelectorAll('.decade-btn').forEach(btn => {
     };
 });
 
-// --- GESTIONE MODALI (da te fornito) ---
+// --- GESTIONE MODALI ---
 document.querySelector('.close-modal').onclick = () => modal.style.display = 'none';
-document.querySelector('.close-review').onclick = () => reviewModal.style.display = 'none';
+document.querySelector('.close-review').onclick = closeReviewModal;
 document.querySelector('.close-stats').onclick = () => statsModal.style.display = 'none';
 document.querySelector('.close-trailer').onclick = () => document.getElementById('trailerModal').style.display = 'none';
 
 window.onclick = (event) => {
     if (event.target == modal) modal.style.display = "none";
-    if (event.target == reviewModal) reviewModal.style.display = "none";
+    if (event.target == reviewModal) closeReviewModal();
     if (event.target == statsModal) statsModal.style.display = "none";
     if (event.target == document.getElementById('trailerModal')) document.getElementById('trailerModal').style.display = "none";
 };
@@ -489,7 +554,7 @@ document.getElementById('trailerBtn')?.addEventListener('click', async ()=>{
     }
 });
 
-// --- IMPORT CSV (BASE, con recupero titolo) ---
+// --- IMPORT CSV (con barra di avanzamento) ---
 document.getElementById('importCsvBtn').onclick = () => document.getElementById('csvFileInput').click();
 document.getElementById('csvFileInput').onchange = (e) => {
     const file = e.target.files[0];
@@ -502,11 +567,9 @@ document.getElementById('csvFileInput').onchange = (e) => {
                 alert("No valid rows in CSV.");
                 return;
             }
-
             const progressDiv = document.getElementById('importProgress');
             const statusEl = document.getElementById('importStatus');
             const barEl = document.getElementById('importProgressBar');
-
             progressDiv.style.display = 'block';
             barEl.style.width = '0%';
             let completed = 0;
@@ -515,7 +578,6 @@ document.getElementById('csvFileInput').onchange = (e) => {
             for (const row of rows) {
                 statusEl.innerText = `Importing: ${row.Name} (${completed + 1} of ${total})`;
                 barEl.style.width = `${(completed / total) * 100}%`;
-
                 try {
                     const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(row.Name)}&year=${row.Year}`);
                     const sData = await res.json();
@@ -533,33 +595,31 @@ document.getElementById('csvFileInput').onchange = (e) => {
                             runtime: 'N/A',
                             year: tmdb.release_date?.split('-')[0] || row.Year,
                             awards: [],
-                            createdAt: serverTimestamp()
+                            createdAt: serverTimestamp(),
+                            order: Date.now() + completed   // per mantenere ordine di importazione
                         });
                     }
                 } catch (err) {
                     console.error(`Error importing ${row.Name}:`, err);
                 }
-
                 completed++;
                 await new Promise(r => setTimeout(r, 250));
             }
-
             barEl.style.width = '100%';
             statusEl.innerText = `Import completed: ${total} movies processed.`;
-
             setTimeout(() => {
                 progressDiv.style.display = 'none';
                 barEl.style.width = '0%';
             }, 2500);
-
-            alert("Import complete!");
+            showToast('Import complete!');
             renderGallery();
         }
     });
 };
 
-window.quickEdit = async (id) => { const v=prompt("New rating:"); if(v) await updateDoc(doc(db, "users", currentUser.uid, "movies", id), {rating: parseFloat(v)}); renderGallery(); };
-window.moveToArchive = async (id) => { const v=prompt("Final rating:"); if(v) await updateDoc(doc(db, "users", currentUser.uid, "movies", id), {isWatchlist: false, rating: parseFloat(v), watchDate: new Date().toISOString().split('T')[0]}); renderGallery(); };
+// Esponi funzioni globali per onclick inline
+window.quickEdit = async (id) => { /* non più usato ma mantenuto */ };
+window.moveToArchive = async (id) => { /* non più usato */ };
 window.openReview = openReview;
 
 function populateFilters(movies) {
@@ -574,13 +634,3 @@ function populateFilters(movies) {
 
 const observer = new IntersectionObserver(entries => { if(entries[0].isIntersecting) loadMoreMovies(); }, { threshold:0.1 });
 observer.observe(document.getElementById('sentinel'));
-
-
-document.getElementById('resetArchiveBtn')?.addEventListener('click', async () => {
-    if (!currentUser) return;
-    if (!confirm("Are you sure you want to delete ALL movies? This cannot be undone.")) return;
-    const snap = await getDocs(collection(db, "users", currentUser.uid, "movies"));
-    await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "users", currentUser.uid, "movies", d.id))));
-    alert("Archive cleared!");
-    renderGallery();
-});
