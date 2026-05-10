@@ -554,7 +554,7 @@ document.getElementById('trailerBtn')?.addEventListener('click', async ()=>{
     }
 });
 
-// --- IMPORT CSV (con barra di avanzamento) ---
+// --- IMPORT CSV (completo, recupera regista, generi, runtime) ---
 document.getElementById('importCsvBtn').onclick = () => document.getElementById('csvFileInput').click();
 document.getElementById('csvFileInput').onchange = (e) => {
     const file = e.target.files[0];
@@ -579,24 +579,36 @@ document.getElementById('csvFileInput').onchange = (e) => {
                 statusEl.innerText = `Importing: ${row.Name} (${completed + 1} of ${total})`;
                 barEl.style.width = `${(completed / total) * 100}%`;
                 try {
+                    // Prima cerca il film
                     const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(row.Name)}&year=${row.Year}`);
                     const sData = await res.json();
                     if (sData.results?.length) {
                         const tmdb = sData.results[0];
+                        // Ottieni dettagli completi e crediti
+                        const [detRes, credRes] = await Promise.all([
+                            fetch(`https://api.themoviedb.org/3/movie/${tmdb.id}?api_key=${TMDB_API_KEY}&language=en-US`).then(r => r.json()),
+                            fetch(`https://api.themoviedb.org/3/movie/${tmdb.id}/credits?api_key=${TMDB_API_KEY}`).then(r => r.json())
+                        ]);
+                        const director = credRes.crew?.find(p => p.job === 'Director')?.name || 'Unknown';
+                        const genres = detRes.genres?.map(g => g.name).join(', ') || '';
+                        const runtime = detRes.runtime ? `${detRes.runtime} min` : 'N/A';
+                        const year = detRes.release_date?.split('-')[0] || tmdb.release_date?.split('-')[0] || row.Year;
+
                         await addDoc(collection(db, "users", currentUser.uid, "movies"), {
                             title: tmdb.title,
                             poster: `https://image.tmdb.org/t/p/w500${tmdb.poster_path}`,
+                            backdrop: tmdb.backdrop_path ? `https://image.tmdb.org/t/p/w1280${tmdb.backdrop_path}` : '',
                             plot: tmdb.overview,
                             rating: row.Rating ? parseFloat(row.Rating) * 2 : null,
                             watchDate: row['Watched Date'] || null,
                             isWatchlist: !row.Rating,
-                            director: 'Unknown',
-                            genres: '',
-                            runtime: 'N/A',
-                            year: tmdb.release_date?.split('-')[0] || row.Year,
+                            director,
+                            genres,
+                            runtime,
+                            year,
                             awards: [],
                             createdAt: serverTimestamp(),
-                            order: Date.now() + completed   // per mantenere ordine di importazione
+                            order: Date.now() + completed // per ordinamento
                         });
                     }
                 } catch (err) {
