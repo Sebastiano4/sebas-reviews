@@ -129,7 +129,7 @@
     <div id="similarMoviesContainer" style="margin-top: 20px;"><h4>🎞️ Similar Films</h4><div id="similarGrid" class="movie-grid mini-grid"></div></div>
     </div></div>
 
-    <!-- Modale statistiche (Vault) con pulsante di Reset -->
+    <!-- Modale statistiche (Vault) -->
     <div id="statsModal" class="modal"><div class="modal-content review-content" style="max-width: 1000px;"><span class="close-stats">&times;</span><h2 style="text-align:center;">Cinema Stats Vault</h2>
     <div class="stats-grid"><div class="stat-card"><h3 id="statTotalMovies">0</h3><p>Watched</p></div><div class="stat-card"><h3 id="statTotalHours">0h</h3><p>Total Time</p></div><div class="stat-card"><h3 id="statAvgRating">0.0</h3><p>Mean Score</p></div><div class="stat-card"><h3 id="statMedian">0.0</h3><p>Median Score</p></div></div>
     <div class="advanced-stats-row"><div class="stat-mini"><strong>Std Deviation:</strong> <span id="statStdDev">0.0</span></div><div class="stat-mini"><strong>Written Reviews:</strong> <span id="statReviewsCount">0</span></div></div>
@@ -137,9 +137,29 @@
     <div class="stats-directors"><h3>👑 Top Directors</h3><div id="topDirectorsList"></div></div>
     <div class="stats-genres"><h3>⭐ Highest Rated Genres</h3><div id="topGenresList"></div></div>
     <div class="stats-time"><h3>⏱️ Total Watch Time by Director</h3><div id="directorTimeList"></div></div>
-    <div class="importer-section"><h3>Letterboxd Importer</h3><input type="file" id="csvFileInput" accept=".csv" style="display:none;"><button id="importCsvBtn" class="btn-primary">Select CSV</button><div id="importProgress" style="display:none;"><p id="importStatus"></p><div style="background:#000;"><div id="importProgressBar" style="width:0%;height:4px;background:var(--accent);"></div></div></div></div>
 
-    <!-- Pulsante Reset aggiunto qui -->
+    <!-- Import CSV -->
+    <div class="importer-section">
+        <h3>Letterboxd Importer</h3>
+        <input type="file" id="csvFileInput" accept=".csv" style="display:none;">
+        <button id="importCsvBtn" class="btn-primary">Select CSV</button>
+        <div id="importProgress" style="display:none;">
+            <p id="importStatus"></p>
+            <div style="background:#000;">
+                <div id="importProgressBar" style="width:0%;height:4px;background:var(--accent);"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ripara Metadati -->
+    <div style="margin-top: 15px; text-align: center;">
+        <button id="repairMetadataBtn" class="btn-primary" style="background:#2c3e66;">🛠 Repair Movie Metadata</button>
+        <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 5px;">
+            Fills in missing director, genres, and runtime for all movies in your archive.
+        </p>
+    </div>
+
+    <!-- Reset Archive -->
     <div style="margin-top: 30px; text-align: center; border-top: 1px solid var(--border); padding-top: 20px;">
         <button id="resetVaultBtn" class="btn-primary" style="background: #b91c1c;">🗑 Reset Entire Archive</button>
         <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Permanently deletes all movies in your archive and watchlist.</p>
