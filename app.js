@@ -480,6 +480,64 @@ document.getElementById('viewMode').onchange = () => {
     renderGallery();
     startDynamicSpotlight();
 };
+
+document.getElementById('repairMetadataBtn')?.addEventListener('click', async () => {
+    if (!currentUser) return;
+    const movies = await fetchAllMovies();
+    const toRepair = movies.filter(m => !m.director || m.director === 'Unknown' || !m.genres || m.runtime === 'N/A');
+    if (toRepair.length === 0) {
+        alert("All movies already have complete metadata.");
+        return;
+    }
+    if (!confirm(`Found ${toRepair.length} movies with missing data. Update now?`)) return;
+    
+    const progressDiv = document.getElementById('importProgress');
+    const statusEl = document.getElementById('importStatus');
+    const barEl = document.getElementById('importProgressBar');
+    progressDiv.style.display = 'block';
+    barEl.style.width = '0%';
+    let completed = 0;
+    const total = toRepair.length;
+
+    for (const movie of toRepair) {
+        statusEl.innerText = `Repairing: ${movie.title} (${completed + 1} of ${total})`;
+        barEl.style.width = `${(completed / total) * 100}%`;
+        try {
+            const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(movie.title)}&year=${movie.year || ''}`);
+            const sData = await res.json();
+            if (sData.results?.length) {
+                const tmdb = sData.results[0];
+                const [detRes, credRes] = await Promise.all([
+                    fetch(`https://api.themoviedb.org/3/movie/${tmdb.id}?api_key=${TMDB_API_KEY}&language=en-US`).then(r => r.json()),
+                    fetch(`https://api.themoviedb.org/3/movie/${tmdb.id}/credits?api_key=${TMDB_API_KEY}`).then(r => r.json())
+                ]);
+                const director = credRes.crew?.find(p => p.job === 'Director')?.name || 'Unknown';
+                const genres = detRes.genres?.map(g => g.name).join(', ') || '';
+                const runtime = detRes.runtime ? `${detRes.runtime} min` : 'N/A';
+                const year = detRes.release_date?.split('-')[0] || movie.year;
+                await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), {
+                    director,
+                    genres,
+                    runtime,
+                    year
+                });
+            }
+        } catch (err) {
+            console.error(`Error repairing ${movie.title}:`, err);
+        }
+        completed++;
+        await new Promise(r => setTimeout(r, 250));
+    }
+    barEl.style.width = '100%';
+    statusEl.innerText = `Repair completed: ${total} movies updated.`;
+    setTimeout(() => {
+        progressDiv.style.display = 'none';
+        barEl.style.width = '0%';
+    }, 2500);
+    showToast('Metadata repaired!');
+    renderGallery();
+});
+
 document.getElementById('sortOrder').onchange = (e) => { currentFilters.sort = e.target.value; renderGallery(); };
 document.getElementById('mainSearch').oninput = (e) => { currentFilters.search = e.target.value; renderGallery(); };
 document.getElementById('filterYear').onchange = (e) => { currentFilters.year = e.target.value; renderGallery(); };
