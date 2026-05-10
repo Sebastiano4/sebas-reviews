@@ -1,3 +1,7 @@
+/* =========================================
+   SEBA'S REVIEWS - COMPLETE STYLESHEET
+   ========================================= */
+
 /* --- VARIABILI E RESET --- */
 :root {
     --bg-color: #08090a;
@@ -129,6 +133,10 @@ header {
     transform: translateY(-2px);
 }
 
+.btn-primary:active {
+    transform: scale(0.95);
+}
+
 .btn-save {
     width: 100%;
     padding: 1rem;
@@ -137,7 +145,7 @@ header {
     margin-top: 1rem;
 }
 
-/* Bottoni rapidi nelle card (VOTE/DONE) */
+/* Bottoni rapidi nelle card (VOTE) */
 .quick-tools {
     display: flex;
     justify-content: space-between;
@@ -178,14 +186,27 @@ header {
     overflow: hidden;
     cursor: pointer;
     border: 1px solid transparent;
-    transition: transform 0.25s ease, box-shadow 0.2s, border 0.2s;
     position: relative;
+    /* Animazioni morbide */
+    animation: cardAppear 0.4s ease-out;
+    transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s, opacity 0.3s;
+}
+
+@keyframes cardAppear {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .movie-card:hover {
-    transform: translateY(-6px);
+    transform: translateY(-8px);
     border-color: var(--accent);
-    box-shadow: 0 12px 20px rgba(0,0,0,0.6);
+    box-shadow: 0 16px 28px rgba(0,0,0,0.7);
+}
+
+/* Stato di rimozione animata */
+.movie-card.removing {
+    opacity: 0;
+    transform: scale(0.8);
 }
 
 .poster-container img {
@@ -205,6 +226,19 @@ header {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* --- DRAG & DROP --- */
+.sortable-card {
+    cursor: grab;
+}
+.sortable-card:active {
+    cursor: grabbing;
+}
+
+.sortable-ghost {
+    opacity: 0.4;
+    background: var(--accent);
 }
 
 /* --- SPOTLIGHT --- */
@@ -277,10 +311,16 @@ header {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0,0,0,0.9);
+    background: rgba(0,0,0,0.85);
     backdrop-filter: blur(8px);
     z-index: 2000;
     overflow-y: auto;
+}
+
+/* Modalità focus: modale recensione più scura e sfocata */
+#reviewModal.modal {
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(12px);
 }
 
 .modal-content {
@@ -296,6 +336,14 @@ header {
 
 .review-content {
     max-width: 950px;
+    /* Effetto "pop" iniziale (scala leggermente ridotta) */
+    transform: scale(0.95);
+    transition: transform 0.3s ease;
+}
+
+/* Quando la modale recensione è attiva, ripristina scala 1 */
+#reviewModal.active .review-content {
+    transform: scale(1);
 }
 
 @keyframes fadeInUp {
@@ -465,6 +513,30 @@ header {
     height: 60px;
     object-fit: cover;
     border-radius: 4px;
+}
+
+/* --- NOTIFICHE TOAST --- */
+.toast-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--accent);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    z-index: 3000;
+    animation: slideInRight 0.3s ease-out forwards;
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOutRight {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
 }
 
 /* --- RESPONSIVE --- */
