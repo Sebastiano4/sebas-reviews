@@ -6,6 +6,66 @@ function getGeminiApiKey() {
   return functions.config()?.gemini?.key || process.env.GEMINI_API_KEY;
 }
 
+function getTmdbApiKey() {
+  return functions.config()?.tmdb?.key || process.env.TMDB_API_KEY;
+}
+
+// Path TMDB consentiti: previene che il proxy venga usato per chiamate arbitrarie
+const ALLOWED_TMDB_PATHS = [
+  /^\/search\/movie$/,
+  /^\/search\/person$/,
+  /^\/discover\/movie$/,
+  /^\/movie\/\d+$/,
+  /^\/movie\/\d+\/credits$/,
+  /^\/movie\/\d+\/videos$/,
+  /^\/movie\/\d+\/similar$/,
+  /^\/movie\/\d+\/recommendations$/,
+  /^\/genre\/movie\/list$/
+];
+
+function isAllowedTmdbPath(path) {
+  return ALLOWED_TMDB_PATHS.some(re => re.test(path));
+}
+
+exports.tmdbProxy = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Utente non autenticato');
+  }
+  const { path, params = {} } = data || {};
+  if (typeof path !== 'string' || !path.startsWith('/')) {
+    throw new functions.https.HttpsError('invalid-argument', 'Path non valido');
+  }
+  if (!isAllowedTmdbPath(path)) {
+    throw new functions.https.HttpsError('permission-denied', `Path TMDB non consentito: ${path}`);
+  }
+
+  const apiKey = getTmdbApiKey();
+  if (!apiKey) {
+    throw new functions.https.HttpsError('failed-precondition', 'TMDB API key non configurata sul backend');
+  }
+
+  const url = new URL(`https://api.themoviedb.org/3${path}`);
+  url.searchParams.set('api_key', apiKey);
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== '') {
+      url.searchParams.set(k, String(v));
+    }
+  }
+
+  try {
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+      const text = await res.text();
+      throw new functions.https.HttpsError('internal', `TMDB ${res.status}: ${text}`);
+    }
+    return await res.json();
+  } catch (err) {
+    if (err instanceof functions.https.HttpsError) throw err;
+    console.error('TMDB proxy error:', err);
+    throw new functions.https.HttpsError('internal', err.message || 'Errore TMDB');
+  }
+});
+
 function createAiModel() {
   const geminiApiKey = getGeminiApiKey();
   if (!geminiApiKey) {

@@ -295,6 +295,7 @@ export function attachProfileListeners() {
                 if (!confirm('Are you REALLY sure? All your data will be lost.')) return;
                 const snap = await getDocs(collection(db, "users", currentUser.uid, "movies"));
                 await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "users", currentUser.uid, "movies", d.id))));
+                window.invalidateMoviesCache?.();
                 showToast('Archive deleted.');
                 showProfileMainView();
                 renderGallery();
@@ -386,6 +387,7 @@ export async function startRepairWithProgress() {
                 await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), {
                     director, genres, runtime, year, cast
                 });
+                window.updateMovieInCache?.(movie.id, { director, genres, runtime, year, cast });
             }
         } catch (err) {
             console.error(`Error repairing ${movie.title}:`, err);
@@ -619,6 +621,7 @@ document.getElementById('importDataBtn2')?.addEventListener('change', async (e) 
             });
 
             await Promise.all(importPromises);
+            window.invalidateMoviesCache?.();
 
             // 5. Clean up and refresh the UI
             showToast('✅ Archive restored successfully!');

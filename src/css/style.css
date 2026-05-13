@@ -2791,3 +2791,114 @@ hr {
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
 }
+
+/* ==================== MODALE VOTO RAPIDO ==================== */
+.vote-modal-content {
+    max-width: 420px;
+    text-align: center;
+    padding: 2rem 1.8rem;
+}
+
+.vote-modal-title {
+    font-family: 'Cinzel', serif;
+    margin: 0 0 1.2rem;
+    color: var(--text-main);
+    font-size: 1.3rem;
+    line-height: 1.3;
+}
+
+.vote-value-display {
+    font-family: 'Cinzel', serif;
+    font-size: 4.2rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+    margin: 0.5rem 0 1.5rem;
+    letter-spacing: 1px;
+}
+
+.vote-value-max {
+    color: var(--text-muted);
+    font-size: 1.8rem;
+    margin-left: 6px;
+}
+
+.vote-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #4b5563, #c4302b);
+    outline: none;
+    cursor: pointer;
+    margin: 0 0 0.5rem;
+}
+
+.vote-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    transition: transform 0.15s ease;
+}
+
+.vote-slider::-webkit-slider-thumb:hover,
+.vote-slider::-webkit-slider-thumb:active {
+    transform: scale(1.15);
+}
+
+.vote-slider::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.vote-scale {
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding: 0 4px;
+}
+
+.vote-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.vote-cancel {
+    background: var(--border);
+    flex: 1;
+    max-width: 140px;
+}
+
+.vote-confirm {
+    flex: 1;
+    max-width: 140px;
+}
+
+.close-vote {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 1.8rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    line-height: 1;
+}
+
+.close-vote:hover {
+    color: var(--accent);
+}

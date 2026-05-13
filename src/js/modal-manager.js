@@ -22,7 +22,8 @@ const MODAL_IDS = [
   'directorsRankingModal',
   'actorsRankingModal',
   'genreChartModal',
-  'eloRankingModal'
+  'eloRankingModal',
+  'voteModal'
 ];
 
 /**

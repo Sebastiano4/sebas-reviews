@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seba's Reviews</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="src/css/style.css">
     <link rel="manifest" href="manifest.json">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <!-- Chart.js, PapaParse, Leaflet sono ora caricati on-demand via utils.js -->
+    <!-- Vedi loadScript() / ensureChartJs() / ensurePapaParse() / ensureLeaflet() -->
+
     <style>
         /* Stili aggiuntivi per la modale moderna */
         .modern-input {
@@ -412,6 +413,23 @@
         </div>
     </div>
 
+    <!-- ==================== MODALE VOTO RAPIDO ==================== -->
+    <div id="voteModal" class="modal">
+        <div class="modal-content vote-modal-content">
+            <span class="close-vote">&times;</span>
+            <h3 id="voteModalTitle" class="vote-modal-title">Rate this film</h3>
+            <div class="vote-value-display"><span id="voteValueLabel">7.0</span><span class="vote-value-max">/10</span></div>
+            <input type="range" id="voteSlider" class="vote-slider" min="0" max="10" step="0.5" value="7">
+            <div class="vote-scale">
+                <span>0</span><span>2.5</span><span>5</span><span>7.5</span><span>10</span>
+            </div>
+            <div class="vote-actions">
+                <button type="button" id="voteCancelBtn" class="btn-primary vote-cancel">Cancel</button>
+                <button type="button" id="voteConfirmBtn" class="btn-primary vote-confirm">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== MODALE DETTAGLIO FILM TMDB ==================== -->
     <div id="exploreMovieModal" class="modal">
         <div class="modal-content" style="max-width: 700px;">
@@ -607,9 +625,9 @@
     </div>
 
     <!-- ==================== SCRIPTS ==================== -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    <script type="module" src="app.js"></script>
+    <!-- Leaflet caricato on-demand via ensureLeaflet() -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js" defer></script>
+    <script type="module" src="src/js/app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js', { scope: '/' })

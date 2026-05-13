@@ -25,7 +25,8 @@ import {
   getStdDev,
   toBase64,
   getRuntimeMinutes,
-  hapticFeedback
+  hapticFeedback,
+  ensurePapaParse
 } from './utils.js';
 import { initTheme, initBottomNav, closeForm, closeReviewModal, openProfileModal, showProfileMainView, attachProfileListeners, showProfileConfirmPage, startRepairWithProgress, setUIDependencies } from './ui.js';
 import { setStatsDependencies, initVaultMap } from './stats.js';
@@ -45,10 +46,92 @@ let spotlightInterval = null;
 let pendingScrollY = null;
 let timeoutId;
 
+let cachedMovies = null;
+let pendingFetch = null;
+
 async function fetchAllMovies() {
     if (!currentUser) return [];
-    const snap = await getDocs(collection(db, "users", currentUser.uid, "movies"));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (cachedMovies) return cachedMovies;
+    if (pendingFetch) return pendingFetch;
+    pendingFetch = (async () => {
+        try {
+            const snap = await getDocs(collection(db, "users", currentUser.uid, "movies"));
+            cachedMovies = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            return cachedMovies;
+        } finally {
+            pendingFetch = null;
+        }
+    })();
+    return pendingFetch;
+}
+
+function invalidateMoviesCache() {
+    cachedMovies = null;
+}
+
+function updateMovieInCache(id, changes) {
+    if (!cachedMovies) return;
+    const idx = cachedMovies.findIndex(m => m.id === id);
+    if (idx !== -1) cachedMovies[idx] = { ...cachedMovies[idx], ...changes };
+}
+
+function removeMovieFromCache(id) {
+    if (!cachedMovies) return;
+    cachedMovies = cachedMovies.filter(m => m.id !== id);
+}
+
+// Esposti su window per i moduli (elo.js, ui.js) che scrivono senza dependency injection
+window.invalidateMoviesCache = invalidateMoviesCache;
+window.updateMovieInCache = updateMovieInCache;
+window.removeMovieFromCache = removeMovieFromCache;
+
+// --- VOTE MODAL (sostituisce prompt() nativo) ---
+function askRating(movieTitle, currentRating) {
+    return new Promise((resolve) => {
+        const voteModal = document.getElementById('voteModal');
+        const slider = document.getElementById('voteSlider');
+        const valueLabel = document.getElementById('voteValueLabel');
+        const title = document.getElementById('voteModalTitle');
+        const confirmBtn = document.getElementById('voteConfirmBtn');
+        const cancelBtn = document.getElementById('voteCancelBtn');
+        const closeBtn = voteModal.querySelector('.close-vote');
+
+        const startValue = (currentRating !== null && currentRating !== undefined && !isNaN(parseFloat(currentRating)))
+            ? parseFloat(currentRating)
+            : 7;
+        slider.value = startValue;
+        valueLabel.textContent = startValue.toFixed(1);
+        title.textContent = `Rate "${movieTitle}"`;
+
+        const onInput = () => {
+            valueLabel.textContent = parseFloat(slider.value).toFixed(1);
+            hapticFeedback('light');
+        };
+        const cleanup = () => {
+            slider.removeEventListener('input', onInput);
+            confirmBtn.removeEventListener('click', onConfirm);
+            cancelBtn.removeEventListener('click', onCancel);
+            closeBtn.removeEventListener('click', onCancel);
+            closeModal('voteModal');
+        };
+        const onConfirm = () => {
+            const value = parseFloat(slider.value);
+            cleanup();
+            resolve(value);
+        };
+        const onCancel = () => {
+            cleanup();
+            resolve(null);
+        };
+
+        slider.addEventListener('input', onInput);
+        confirmBtn.addEventListener('click', onConfirm);
+        cancelBtn.addEventListener('click', onCancel);
+        closeBtn.addEventListener('click', onCancel);
+
+        openModal('voteModal');
+        setTimeout(() => slider.focus(), 50);
+    });
 }
 
 function populateFilters(movies) {
@@ -167,6 +250,7 @@ setStatsDependencies({
         if (!currentUser || !movieId) return;
         try {
             await updateDoc(doc(db, "users", currentUser.uid, "movies", movieId), { production_countries });
+            updateMovieInCache(movieId, { production_countries });
         } catch (err) {
             console.warn('Failed to save production countries for map:', err);
         }
@@ -292,11 +376,12 @@ onAuthStateChanged(auth, async (user) => {
     } else {
         // User logged out
         currentUser = null;
+        invalidateMoviesCache();
         loginBtn.style.display = 'inline-block';
         if (logoutBtn) logoutBtn.style.display = 'none';
         appContent.style.display = 'none';
         if (profileBtn) profileBtn.style.display = 'none';
-        
+
         // Reset all global state
         resetEloSystemState();
     }
@@ -413,6 +498,7 @@ document.getElementById('movieForm').onsubmit = async(e)=>{
         if (currentMovieId) {
             // 1. Aggiorna il documento su Firestore
             await updateDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId), movieData);
+            updateMovieInCache(currentMovieId, movieData);
 
             // 2. Prepara l’oggetto completo del film (con id)
             const updatedMovie = { id: currentMovieId, ...movieData };
@@ -438,8 +524,11 @@ document.getElementById('movieForm').onsubmit = async(e)=>{
         } else {
             // Nuovo film: salva in Firestore
             movieData.createdAt = serverTimestamp();
-            await addDoc(collection(db, "users", currentUser.uid, "movies"), movieData);
-            
+            const newRef = await addDoc(collection(db, "users", currentUser.uid, "movies"), movieData);
+            if (cachedMovies) {
+                cachedMovies.unshift({ id: newRef.id, ...movieData });
+            }
+
             closeForm();
 
             // Controlla se siamo in modalità Explore
@@ -732,15 +821,16 @@ function createCardElement(movie, isWatchlistMode) {
     const voteBtn = card.querySelector('.vote-btn');
     voteBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const newRating = prompt(`Rating for "${movie.title}" (0-10):`, movie.rating || '');
-        if (newRating && !isNaN(parseFloat(newRating))) {
-            const rating = parseFloat(newRating);
+        const rating = await askRating(movie.title, movie.rating);
+        if (rating !== null && !isNaN(rating)) {
             if (movie.isWatchlist) {
+                const watchDate = new Date().toISOString().split('T')[0];
                 await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), {
                     rating,
                     isWatchlist: false,
-                    watchDate: new Date().toISOString().split('T')[0]
+                    watchDate
                 });
+                updateMovieInCache(movie.id, { rating, isWatchlist: false, watchDate });
                 if (isWatchlistMode) {
                     card.style.transition = 'opacity 0.3s, transform 0.3s';
                     card.style.opacity = '0';
@@ -752,6 +842,7 @@ function createCardElement(movie, isWatchlistMode) {
                 }
             } else {
                 await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), { rating });
+                updateMovieInCache(movie.id, { rating });
                 const ratingSpan = card.querySelector('.quick-tools span');
                 if (ratingSpan) ratingSpan.textContent = `★ ${rating}`;
             }
@@ -903,6 +994,7 @@ async function loadMoreMovies() {
                 for (let i = 0; i < cards.length; i++) {
                     const id = cards[i].getAttribute('data-id');
                     await updateDoc(doc(db, "users", currentUser.uid, "movies", id), { order: i });
+                    updateMovieInCache(id, { order: i });
                 }
                 showToast('Order saved');
             }
@@ -1029,11 +1121,12 @@ document.getElementById('editBtn').addEventListener('click', async (event) => {
 
 document.getElementById('deleteBtn').addEventListener('click', async (event) => {
     event.preventDefault();
-    if(confirm("Delete forever?")){ 
+    if(confirm("Delete forever?")){
         await deleteDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
+        removeMovieFromCache(currentMovieId);
         closeModal('reviewModal');
-        renderGallery(); 
-    } 
+        renderGallery();
+    }
 });
 
 // --- SIMILAR MOVIES & RECOMMENDATIONS ---
@@ -1124,6 +1217,7 @@ document.getElementById('repairMetadataBtn')?.addEventListener('click', async ()
                     year,
                     cast   // 👈 aggiunto il cast
                 });
+                updateMovieInCache(movie.id, { director, genres, runtime, year, cast });
             }
         } catch (err) {
             console.error(`Error repairing ${movie.title}:`, err);
@@ -1192,6 +1286,7 @@ document.getElementById('resetVaultBtn')?.addEventListener('click', async () => 
     const deletions = [];
     snap.forEach(docSnap => deletions.push(deleteDoc(doc(db, "users", currentUser.uid, "movies", docSnap.id))));
     await Promise.all(deletions);
+    invalidateMoviesCache();
     showToast('Archive cleared!');
     closeModal('statsModal');
     renderGallery();
@@ -1214,8 +1309,9 @@ const importCsvBtn = document.getElementById('importCsvBtn2'); // NEW ID
 if (importCsvBtn) importCsvBtn.onclick = () => document.getElementById('csvFileInput2').click();
 
 const csvFileInput = document.getElementById('csvFileInput2'); // NEW ID
-if (csvFileInput) csvFileInput.onchange = (e) => {
+if (csvFileInput) csvFileInput.onchange = async (e) => {
     const file = e.target.files[0];
+    await ensurePapaParse();
     Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
@@ -1280,6 +1376,7 @@ if (csvFileInput) csvFileInput.onchange = (e) => {
                 progressDiv.style.display = 'none';
                 barEl.style.width = '0%';
             }, 2500);
+            invalidateMoviesCache();
             showToast('Import complete!');
             renderGallery();
         }

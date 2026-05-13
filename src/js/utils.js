@@ -76,3 +76,54 @@ export function hapticFeedback(style = 'light') {
         navigator.vibrate(patterns[style] || 10);
     }
 }
+
+// --- Lazy loader per script e stylesheet esterni ---
+const scriptPromises = new Map();
+const stylesheetPromises = new Map();
+
+export function loadScript(src, integrity) {
+    if (scriptPromises.has(src)) return scriptPromises.get(src);
+    const p = new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) { resolve(); return; }
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        if (integrity) {
+            s.integrity = integrity;
+            s.crossOrigin = 'anonymous';
+        }
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        document.head.appendChild(s);
+    });
+    scriptPromises.set(src, p);
+    return p;
+}
+
+export function loadStylesheet(href, integrity) {
+    if (stylesheetPromises.has(href)) return stylesheetPromises.get(href);
+    const p = new Promise((resolve, reject) => {
+        const existing = document.querySelector(`link[href="${href}"]`);
+        if (existing) { resolve(); return; }
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        if (integrity) {
+            link.integrity = integrity;
+            link.crossOrigin = 'anonymous';
+        }
+        link.onload = () => resolve();
+        link.onerror = () => reject(new Error(`Failed to load stylesheet: ${href}`));
+        document.head.appendChild(link);
+    });
+    stylesheetPromises.set(href, p);
+    return p;
+}
+
+export const ensureChartJs = () => loadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js');
+export const ensurePapaParse = () => loadScript('https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js');
+export const ensureLeaflet = () => Promise.all([
+    loadStylesheet('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY='),
+    loadScript('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js')
+]);

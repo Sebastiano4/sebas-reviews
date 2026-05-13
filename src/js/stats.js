@@ -1,4 +1,4 @@
-import { getMedian, getStdDev, getRuntimeMinutes } from './utils.js';
+import { getMedian, getStdDev, getRuntimeMinutes, ensureChartJs, ensureLeaflet } from './utils.js';
 import { fetchDirectorImage, fetchActorImage, getMovieDetails } from './tmdb.js';
 import { getEloRanking } from './elo.js';
 import { registerPopStateInterceptor } from './modal-manager.js';
@@ -122,6 +122,7 @@ export async function updateAdvancedStats() {
     });
     const ctx = document.getElementById('ratingChart');
     if (ctx) {
+        await ensureChartJs();
         ratingChartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -294,6 +295,7 @@ export async function openVaultMapView() {
     updateVaultMapSummary();
 
     if (!vaultMap) {
+        await ensureLeaflet();
         vaultMap = L.map('vaultMapContainer', {
             worldCopyJump: true,
             zoomControl: true,
@@ -491,6 +493,7 @@ export async function buildGenreChart() {
     const canvas = document.getElementById('genreRatingChart');
     if (genreChartInstance) genreChartInstance.destroy();
 
+    await ensureChartJs();
     genreChartInstance = new Chart(canvas, {
         type: 'bar',
         data: {

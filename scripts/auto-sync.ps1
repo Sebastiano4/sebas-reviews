@@ -2,7 +2,8 @@
 # Osserva la cartella e committa+pusha automaticamente dopo 60s di inattivita'.
 # Avvio: doppio click su auto-sync.bat, oppure: powershell -ExecutionPolicy Bypass -File auto-sync.ps1
 
-$RepoPath  = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoPath  = Split-Path -Parent $ScriptDir
 $DebounceSeconds = 60
 $Branch    = "main"
 

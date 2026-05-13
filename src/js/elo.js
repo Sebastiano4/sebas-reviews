@@ -308,6 +308,12 @@ async function finishRatingUpdate() {
             );
         }
         await Promise.all(updates);
+        if (ratingEditorState.winnerMovieId) {
+            window.updateMovieInCache?.(ratingEditorState.winnerMovieId, { rating: ratingEditorState.winnerValue });
+        }
+        if (ratingEditorState.loserMovieId) {
+            window.updateMovieInCache?.(ratingEditorState.loserMovieId, { rating: ratingEditorState.loserValue });
+        }
     } catch (error) {
         console.error('Errore aggiornamento rating:', error);
         // Nessun toast
@@ -396,6 +402,8 @@ export async function saveLeapfrogResults(updatedMovieA, updatedMovieB) {
             matchCount: updatedMovieB.matchCount
         })
     ]);
+    window.updateMovieInCache?.(updatedMovieA.id, { eloRating: updatedMovieA.eloRating, matchCount: updatedMovieA.matchCount });
+    window.updateMovieInCache?.(updatedMovieB.id, { eloRating: updatedMovieB.eloRating, matchCount: updatedMovieB.matchCount });
 }
 
 export async function updateLeapfrog(movieA, movieB, winnerIsA) {
@@ -671,6 +679,7 @@ export async function migrateMoviesToElo() {
             }
         }
         hasRunEloMigration = true;
+        if (migrated > 0) window.invalidateMoviesCache?.();
         console.log(`✅ ELO migration: ${migrated} updated, ${skipped} skipped`);
         return migrated;
     } catch (error) {

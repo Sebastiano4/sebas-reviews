@@ -1,35 +1,22 @@
 /**
  * --- IL CERCATORE DI FILM (TMDB) ---
- * Questo file è come un assistente che va su internet a cercare informazioni.
- * Quando scrivi il titolo di un film, lui corre sul sito TMDB e torna con:
- * la locandina, il regista, gli attori e la trama.
- * Serve a non farti scrivere tutto a mano ogni volta.
+ * Le richieste passano attraverso la Cloud Function `tmdbProxy`: la chiave API
+ * resta sul backend e non viene mai esposta al browser. L'autenticazione utente
+ * (Firebase Auth) viene verificata server-side.
  */
 
-const TMDB_API_KEY = '0de9856190bca7ec5acd797969c1d952';
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-functions.js";
 
-function buildUrl(path, params = {}) {
-  const url = new URL(`${TMDB_BASE_URL}${path}`);
-  const queryParams = { api_key: TMDB_API_KEY, ...params };
-
-  Object.entries(queryParams).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      url.searchParams.set(key, String(value));
-    }
-  });
-
-  return url.toString();
-}
+const functions = getFunctions();
+const tmdbProxyFn = httpsCallable(functions, 'tmdbProxy');
 
 async function tmdbFetch(path, params = {}) {
-  const url = buildUrl(path, params);
-  const response = await fetch(url);
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`TMDB fetch failed (${response.status}): ${text}`);
+  try {
+    const result = await tmdbProxyFn({ path, params });
+    return result.data;
+  } catch (err) {
+    throw new Error(`TMDB proxy failed: ${err.message || err.code || 'unknown error'}`);
   }
-  return response.json();
 }
 
 export async function searchMovies(query, page = 1) {
