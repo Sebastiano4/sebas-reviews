@@ -48,6 +48,7 @@ function showToast(message, duration = 2000) {
 onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUser = user;
+        invalidateMoviesCache();
         loginBtn.style.display = 'none';
         logoutBtn.style.display = 'inline-block';
         appContent.style.display = 'block';
@@ -55,6 +56,7 @@ onAuthStateChanged(auth, (user) => {
         startDynamicSpotlight();
     } else {
         currentUser = null;
+        invalidateMoviesCache();
         loginBtn.style.display = 'inline-block';
         logoutBtn.style.display = 'none';
         appContent.style.display = 'none';
@@ -76,10 +78,38 @@ const getRuntimeMinutes = (runtime) => {
     return match ? parseInt(match[0], 10) : 105;
 };
 
+let cachedMovies = null;
+let pendingFetch = null;
+
 async function fetchAllMovies() {
     if (!currentUser) return [];
-    const snap = await getDocs(collection(db, "users", currentUser.uid, "movies"));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (cachedMovies) return cachedMovies;
+    if (pendingFetch) return pendingFetch;
+    pendingFetch = (async () => {
+        const snap = await getDocs(collection(db, "users", currentUser.uid, "movies"));
+        cachedMovies = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        return cachedMovies;
+    })();
+    try {
+        return await pendingFetch;
+    } finally {
+        pendingFetch = null;
+    }
+}
+
+function invalidateMoviesCache() {
+    cachedMovies = null;
+}
+
+function updateMovieInCache(id, changes) {
+    if (!cachedMovies) return;
+    const idx = cachedMovies.findIndex(m => m.id === id);
+    if (idx !== -1) cachedMovies[idx] = { ...cachedMovies[idx], ...changes };
+}
+
+function removeMovieFromCache(id) {
+    if (!cachedMovies) return;
+    cachedMovies = cachedMovies.filter(m => m.id !== id);
 }
 
 // --- TMDB SEARCH ---
@@ -162,6 +192,7 @@ document.getElementById('movieForm').onsubmit = async(e)=>{
             movieData.createdAt = serverTimestamp();
             await addDoc(collection(db, "users", currentUser.uid, "movies"), movieData);
         }
+        invalidateMoviesCache();
         closeForm(); renderGallery();
     } catch(err) { console.error(err); }
 };
@@ -251,11 +282,13 @@ async function loadMoreMovies(){
             if (newRating && !isNaN(parseFloat(newRating))) {
                 const rating = parseFloat(newRating);
                 if (m.isWatchlist) {
+                    const watchDate = new Date().toISOString().split('T')[0];
                     await updateDoc(doc(db, "users", currentUser.uid, "movies", m.id), {
                         rating,
                         isWatchlist: false,
-                        watchDate: new Date().toISOString().split('T')[0]
+                        watchDate
                     });
+                    updateMovieInCache(m.id, { rating, isWatchlist: false, watchDate });
                     // Se siamo nella watchlist, rimuovi la card con animazione
                     if (isWatchlistMode) {
                         card.style.transition = 'opacity 0.3s, transform 0.3s';
@@ -269,6 +302,7 @@ async function loadMoreMovies(){
                     }
                 } else {
                     await updateDoc(doc(db, "users", currentUser.uid, "movies", m.id), { rating });
+                    updateMovieInCache(m.id, { rating });
                     const ratingSpan = card.querySelector('.quick-tools span');
                     if (ratingSpan) ratingSpan.textContent = `★ ${rating}`;
                 }
@@ -291,6 +325,7 @@ async function loadMoreMovies(){
                 for (let i = 0; i < cards.length; i++) {
                     const id = cards[i].getAttribute('data-id');
                     await updateDoc(doc(db, "users", currentUser.uid, "movies", id), { order: i });
+                    updateMovieInCache(id, { order: i });
                 }
                 // Non serve renderGallery() per non perdere l'ordine corrente
                 showToast('Order saved');
@@ -350,8 +385,9 @@ document.getElementById('editBtn').onclick = async()=>{
 };
 
 document.getElementById('deleteBtn').onclick = async()=>{ 
-    if(confirm("Delete forever?")){ 
+    if(confirm("Delete forever?")){
         await deleteDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
+        removeMovieFromCache(currentMovieId);
         reviewModal.classList.remove('active');
         reviewModal.style.display='none'; 
         renderGallery(); 
@@ -521,6 +557,7 @@ document.getElementById('repairMetadataBtn')?.addEventListener('click', async ()
                     runtime,
                     year
                 });
+                updateMovieInCache(movie.id, { director, genres, runtime, year });
             }
         } catch (err) {
             console.error(`Error repairing ${movie.title}:`, err);
@@ -535,6 +572,7 @@ document.getElementById('repairMetadataBtn')?.addEventListener('click', async ()
         barEl.style.width = '0%';
     }, 2500);
     showToast('Metadata repaired!');
+    invalidateMoviesCache();
     renderGallery();
 });
 
@@ -568,6 +606,7 @@ document.getElementById('resetVaultBtn')?.addEventListener('click', async () => 
     const deletions = [];
     snap.forEach(docSnap => deletions.push(deleteDoc(doc(db, "users", currentUser.uid, "movies", docSnap.id))));
     await Promise.all(deletions);
+    invalidateMoviesCache();
     showToast('Archive cleared!');
     document.getElementById('statsModal').style.display = 'none';
     renderGallery();
@@ -682,6 +721,7 @@ document.getElementById('csvFileInput').onchange = (e) => {
                 barEl.style.width = '0%';
             }, 2500);
             showToast('Import complete!');
+            invalidateMoviesCache();
             renderGallery();
         }
     });
