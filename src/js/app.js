@@ -32,6 +32,7 @@ import { initTheme, initBottomNav, closeForm, closeReviewModal, openProfileModal
 import { setStatsDependencies, initVaultMap } from './stats.js';
 import { startBattle, closeBattleModal, migrateMoviesToElo, resetEloSystemState } from './elo.js';
 import { initModalSystem, openModal, closeModal } from './modal-manager.js';
+import { registerListener, unregisterAll } from './listener-registry.js';
 
 // --- GLOBALS ---
 let currentUser = null;
@@ -336,24 +337,23 @@ onAuthStateChanged(auth, async (user) => {
         }
 
         // --- REAL-TIME NICKNAME SYNC ---
-        // Ascolta i cambiamenti del documento dell'utente in Firestore
+        // Ascolta i cambiamenti del documento dell'utente in Firestore.
+        // Registrato nel registry per essere chiuso automaticamente al logout.
         const userRef = doc(db, "users", user.uid);
-        const unsubscribe = onSnapshot(userRef, (docSnap) => {
+        registerListener('user:profile', onSnapshot(userRef, (docSnap) => {
             if (docSnap.exists()) {
                 const userData = docSnap.data();
                 if (userData.nickname) {
                     localStorage.setItem('sebas-nickname', userData.nickname);
-                    // Aggiorna il DOM se il pannello profilo è aperto
                     const profileNicknameEl = document.getElementById('profileNickname');
                     if (profileNicknameEl) {
                         profileNicknameEl.innerText = userData.nickname;
                     }
-                    console.log('Nickname aggiornato in tempo reale:', userData.nickname);
                 }
             }
         }, (error) => {
             console.warn('Errore nel listener del nickname:', error);
-        });
+        }));
 
         renderGallery();
         startDynamicSpotlight();
@@ -376,6 +376,8 @@ onAuthStateChanged(auth, async (user) => {
     } else {
         // User logged out
         currentUser = null;
+        // Chiude tutti i listener Firestore attivi per evitare leak
+        unregisterAll();
         invalidateMoviesCache();
         loginBtn.style.display = 'inline-block';
         if (logoutBtn) logoutBtn.style.display = 'none';

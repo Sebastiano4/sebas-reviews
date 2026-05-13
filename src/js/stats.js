@@ -18,6 +18,21 @@ export function setStatsDependencies(deps) {
 let genreChartInstance = null;
 let ratingChartInstance = null;
 
+/**
+ * Distrugge le istanze Chart.js attive per liberare memoria.
+ * Da chiamare quando il modal delle statistiche viene chiuso.
+ */
+export function cleanupStats() {
+    if (ratingChartInstance) {
+        ratingChartInstance.destroy();
+        ratingChartInstance = null;
+    }
+    if (genreChartInstance) {
+        genreChartInstance.destroy();
+        genreChartInstance = null;
+    }
+}
+
 export async function updateAdvancedStats() {
     const movies = await fetchAllMovies();
     const watched = movies.filter(m => !m.isWatchlist);

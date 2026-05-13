@@ -5,6 +5,7 @@
  */
 
 import { auth, db, storage } from './firebase.js';
+import { registerListener, unregisterListener } from './listener-registry.js';
 import { 
     ref, 
     uploadBytes, 
@@ -106,14 +107,12 @@ export function listenToGallery(uid, callback) {
     }
 
     try {
-        // Query ordinata per data decrescente
         const q = query(
             collection(db, "galleries"),
             where("uid", "==", uid),
             orderBy("timestamp", "desc")
         );
 
-        // Sottoscrizione al listener
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const images = snapshot.docs.map(doc => ({
                 id: doc.id,
@@ -125,10 +124,25 @@ export function listenToGallery(uid, callback) {
             callback([], error);
         });
 
+        // Registra nel registry globale: se questa funzione viene richiamata
+        // per lo stesso utente, il listener precedente viene chiuso automaticamente.
+        registerListener(`gallery:${uid}`, unsubscribe);
+
         return unsubscribe;
     } catch (error) {
         console.error("Error setting up gallery listener:", error);
         throw new Error(`Failed to listen to gallery: ${error.message}`);
+    }
+}
+
+/**
+ * Chiude il listener della galleria per l'utente specificato.
+ * Da chiamare quando la sezione galleria non è più visibile.
+ * @param {string} uid - UID dell'utente
+ */
+export function stopGalleryListener(uid) {
+    if (uid) {
+        unregisterListener(`gallery:${uid}`);
     }
 }
 
@@ -221,10 +235,10 @@ export async function getGalleryStats(uid) {
     }
 }
 
-// Per compatibilità con import ES6
 export default {
     uploadUserImages,
     listenToGallery,
+    stopGalleryListener,
     deleteGalleryImage,
     fetchGalleryImages,
     getGalleryStats

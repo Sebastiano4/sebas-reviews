@@ -1,0 +1,210 @@
+/* =========================================
+   STATS — Stats Vault, Genre chart, Explore modal, Skeleton, Movie details
+   ========================================= */
+
+/* --- STATS VAULT --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: rgba(0,0,0,0.3);
+    padding: 1.5rem;
+    border-radius: 16px;
+    text-align: center;
+    border: 1px solid var(--border);
+}
+
+.stat-card h3 {
+    font-size: 2rem;
+    margin: 0;
+    color: var(--accent);
+}
+
+.stat-card p {
+    margin: 5px 0 0;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+.stat-badge {
+    background: rgba(15, 23, 42, 0.5);
+    padding: 8px 15px;
+    border-radius: 30px;
+    border: 1px solid var(--border);
+    display: inline-block;
+    margin: 5px;
+    font-size: 0.85rem;
+}
+
+.stats-directors, .stats-genres, .stats-time {
+    background: rgba(0,0,0,0.3);
+    padding: 15px;
+    border-radius: 16px;
+    margin-top: 20px;
+}
+
+.stats-directors h3, .stats-genres h3, .stats-time h3 {
+    margin-top: 0;
+    font-family: 'Cinzel', serif;
+    color: var(--accent);
+}
+
+/* --- MODALE MEDIA VOTI PER GENERE --- */
+#genreRatingChart {
+    max-height: 400px;
+}
+
+.close-genre-chart {
+    position: absolute;
+    right: 20px;
+    top: 15px;
+    font-size: 2rem;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+
+.close-genre-chart:hover { color: var(--accent); }
+
+.genre-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.genre-name { font-weight: 600; }
+
+.genre-stats {
+    color: var(--accent);
+    font-weight: bold;
+}
+
+/* --- MODALE DETTAGLIO FILM ESPLORA --- */
+.close-explore-movie {
+    position: absolute;
+    right: 20px;
+    top: 15px;
+    font-size: 2rem;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+
+.close-explore-movie:hover { color: var(--accent); }
+
+#exploreMovieContent {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.explore-movie-poster {
+    width: 200px;
+    align-self: center;
+    border-radius: 8px;
+}
+
+/* --- SKELETON LOADER --- */
+.skeleton-card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+}
+
+.skeleton-poster {
+    width: 100%;
+    aspect-ratio: 2/3;
+    background: linear-gradient(90deg, #161a23 25%, #1e2433 50%, #161a23 75%);
+    background-size: 200% 100%;
+    animation: skeletonPulse 1.5s infinite linear;
+}
+
+.skeleton-info {
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.skeleton-text {
+    height: 14px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #161a23 25%, #1e2433 50%, #161a23 75%);
+    background-size: 200% 100%;
+    animation: skeletonPulse 1.5s infinite linear;
+}
+
+.skeleton-text.title {
+    width: 80%;
+    height: 18px;
+    margin-bottom: 4px;
+}
+
+.skeleton-text.subtitle { width: 50%; }
+
+@keyframes skeletonPulse {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* --- DETTAGLI FILM (movieDetailsModal) --- */
+.close-movie-details {
+    position: absolute;
+    right: 20px;
+    top: 15px;
+    font-size: 2rem;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+
+.close-movie-details:hover { color: var(--accent); }
+
+#movieDetailsContent {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin-top: 10px;
+}
+
+.detail-section {
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    padding: 14px;
+}
+
+.detail-section h4 {
+    margin: 0 0 10px 0;
+    font-family: 'Cinzel', serif;
+    color: var(--accent);
+    font-size: 0.95rem;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+    padding-bottom: 4px;
+}
+
+.external-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #1e293b;
+    color: white;
+    padding: 0.6rem 1.4rem;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background 0.2s;
+    margin-right: 10px;
+    margin-top: 10px;
+}
+
+.external-link-btn:hover { background: var(--accent); }

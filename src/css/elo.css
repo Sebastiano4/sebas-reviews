@@ -1,0 +1,838 @@
+/* =========================================
+   ELO — Tier badges, Ranking, Battle, Directors, Actors
+   ========================================= */
+
+/* --- ELO TIER BADGES --- */
+.elo-movie-card {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 18px;
+}
+
+.elo-tier-badge {
+    border-radius: 999px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.elo-tier-rookie .elo-tier-badge,
+.elo-tier-rookie {
+    color: #c9d6ff;
+    background: rgba(94, 114, 228, 0.18);
+    border: 1px solid rgba(94, 114, 228, 0.35);
+}
+
+.elo-tier-pro .elo-tier-badge,
+.elo-tier-pro {
+    color: #9be7ff;
+    background: rgba(56, 189, 248, 0.16);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.elo-tier-elite .elo-tier-badge,
+.elo-tier-elite {
+    color: #00ffaa;
+    background: rgba(34, 197, 94, 0.18);
+    border: 1px solid rgba(34, 197, 94, 0.5);
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.15);
+}
+
+.elo-tier-veteran .elo-tier-badge,
+.elo-tier-veteran {
+    color: #c084fc;
+    background: rgba(167, 139, 250, 0.18);
+    border: 1px solid rgba(167, 139, 250, 0.5);
+    box-shadow: 0 0 10px rgba(167, 139, 250, 0.12);
+}
+
+.elo-tier-master .elo-tier-badge,
+.elo-tier-master {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.18);
+    border: 1px solid rgba(251, 191, 36, 0.5);
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.15);
+}
+
+.elo-tier-grandmaster .elo-tier-badge,
+.elo-tier-grandmaster {
+    color: #f084dc;
+    background: rgba(192, 88, 243, 0.18);
+    border: 1px solid rgba(192, 88, 243, 0.5);
+    box-shadow: 0 0 12px rgba(192, 88, 243, 0.15);
+}
+
+.elo-tier-legendary .elo-tier-badge,
+.elo-tier-legendary {
+    color: #ffe7b2;
+    background: linear-gradient(135deg, rgba(255, 212, 77, 0.24), rgba(255, 150, 0, 0.16));
+    border: 1px solid rgba(255, 205, 60, 0.5);
+    box-shadow: 0 0 18px rgba(255, 165, 0, 0.25);
+}
+
+.elo-tier-legendary {
+    animation: legendaryPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes legendaryPulse {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-2px); }
+}
+
+/* --- ELO RANKING CONTROLS --- */
+.ranking-content {
+    max-width: 900px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.ranking-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    margin-top: 1.5rem;
+}
+
+.elo-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.elo-range-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+}
+
+.elo-range-label {
+    display: flex;
+    flex-direction: column;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    gap: 0.35rem;
+}
+
+.elo-mostra-group {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.elo-range-input {
+    min-width: 110px;
+    padding: 0.65rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.05);
+    color: white;
+}
+
+.elo-range-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(196,48,43,0.12);
+}
+
+#eloBadgeFilter,
+#eloBadgeFilter option {
+    background-color: #1e1e1e;
+    color: white;
+}
+
+#eloBadgeFilter {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.elo-show-all-btn {
+    min-width: 42px;
+    padding: 0.65rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.05);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.elo-show-all-btn:hover,
+.elo-show-all-btn:active {
+    border-color: var(--accent);
+    background: rgba(196,48,43,0.16);
+}
+
+.elo-search-bar {
+    width: 100%;
+    max-width: 320px;
+    padding: 0.8rem 1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.05);
+    color: white;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.elo-search-bar:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(196,48,43,0.12);
+}
+
+.elo-jumps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.elo-jump-link {
+    background: rgba(255,255,255,0.06);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 0.6rem 0.9rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.elo-jump-link:hover,
+.elo-jump-link:focus {
+    background: rgba(196,48,43,0.16);
+    border-color: var(--accent);
+}
+
+/* --- ELO MOVIE ROWS --- */
+.elo-movie-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.elo-movie-row:hover {
+    transform: translateY(-2px);
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.16);
+}
+
+.elo-movie-row.compact {
+    gap: 0.75rem;
+    padding: 0.75rem;
+}
+
+.elo-movie-row.top-three {
+    border-width: 1.5px;
+}
+
+.elo-rank-badge {
+    min-width: 46px;
+    text-align: center;
+    font-weight: 800;
+    font-size: 1.1rem;
+}
+
+.elo-poster {
+    width: 70px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 14px;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.2);
+}
+
+.elo-movie-row.compact .elo-poster {
+    width: 50px;
+    height: 72px;
+}
+
+.elo-row-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.elo-row-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    overflow: hidden;
+}
+
+.elo-title {
+    margin: 0;
+    font-weight: 800;
+    font-size: 1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.elo-score {
+    color: var(--accent);
+    font-size: 0.9rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.elo-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* tier-badge più compatta nelle righe Elo */
+.elo-movie-row .elo-tier-badge {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+}
+
+.elo-movie-row.compact .elo-title { font-size: 0.95rem; }
+.elo-movie-row.compact .elo-score { font-size: 0.82rem; }
+
+/* Leapfrog highlight */
+.elo-movie-row.leapfrog-highlight {
+    animation: leapfrogGlow 2s ease-out;
+    border-color: #f0b400;
+    box-shadow: 0 0 25px rgba(240,180,0,0.35);
+}
+
+@keyframes leapfrogGlow {
+    0%   { transform: translateY(0);   box-shadow: 0 0 0 rgba(240,180,0,0); }
+    50%  { transform: translateY(-4px); box-shadow: 0 0 25px rgba(240,180,0,0.45); }
+    100% { transform: translateY(0);   box-shadow: 0 0 0 rgba(240,180,0,0); }
+}
+
+/* --- DIRECTORS RANKING --- */
+.director-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    transition: background 0.2s;
+    position: relative;
+}
+
+.director-card:hover {
+    background: rgba(255,255,255,0.03);
+}
+
+.director-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #0f172a;
+    border: 2px solid var(--accent);
+    flex-shrink: 0;
+}
+
+.director-info { flex: 1; }
+
+.director-name {
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 0 0 4px 0;
+}
+
+.director-rating {
+    color: var(--accent);
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.director-top-movies {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mini-poster {
+    width: 45px;
+    height: 68px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    transition: transform 0.2s;
+    cursor: pointer;
+}
+
+.mini-poster:hover {
+    transform: scale(1.1);
+    border-color: var(--accent);
+}
+
+.close-ranking {
+    position: absolute;
+    right: 20px;
+    top: 15px;
+    font-size: 2rem;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+
+.close-ranking:hover {
+    color: var(--accent);
+}
+
+.director-films-list {
+    margin: 0.5rem 0 0 0;
+    padding-left: 1.2rem;
+    font-size: 0.85rem;
+    color: var(--text-main);
+}
+
+.director-films-list li { margin-bottom: 0.25rem; }
+
+.film-title {
+    font-weight: 500;
+    margin-right: 0.5rem;
+}
+
+.rank-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: var(--accent);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1rem;
+    z-index: 2;
+}
+
+.director-posters-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.director-film-poster {
+    width: 52px;
+    height: 78px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.director-film-poster:hover {
+    transform: scale(1.1);
+    border-color: var(--accent);
+}
+
+/* --- ACTORS RANKING --- */
+.close-actors-ranking {
+    position: absolute;
+    right: 20px;
+    top: 15px;
+    font-size: 2rem;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+
+.close-actors-ranking:hover { color: var(--accent); }
+
+.actor-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    position: relative;
+    transition: background 0.2s;
+}
+
+.actor-card:hover { background: rgba(255,255,255,0.03); }
+
+.actor-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #0f172a;
+    border: 2px solid var(--accent);
+    flex-shrink: 0;
+}
+
+.actor-rank-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: var(--accent);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1rem;
+    z-index: 2;
+}
+
+.actor-info { flex: 1; }
+
+.actor-name {
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 0 0 4px 0;
+}
+
+.actor-stats {
+    color: var(--accent);
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.actor-posters-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.actor-film-poster {
+    width: 52px;
+    height: 78px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.actor-film-poster:hover {
+    transform: scale(1.1);
+    border-color: var(--accent);
+}
+
+/* =========================================
+   ELO BATTLE MODAL
+   ========================================= */
+#battleModal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 1rem;
+}
+
+#battleModal .modal-content {
+    max-width: 900px;
+    width: min(95vw, 900px);
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+.battle-content {
+    height: 90vh;
+    max-height: 100%;
+    width: min(95vw, 900px);
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    overflow: hidden;
+}
+
+.battle-container {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 1.5rem;
+    align-items: stretch;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+}
+
+.battle-side {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    align-items: stretch;
+    justify-content: space-between;
+    min-height: 0;
+}
+
+.battle-movie {
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    transition: transform 0.2s;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.battle-movie-container {
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.battle-movie-container:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px rgba(196,48,43,0.3);
+}
+
+.battle-movie img.battle-poster {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    flex: 1;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+}
+
+.battle-info {
+    padding: 0.8rem 1rem;
+    background: rgba(0,0,0,0.75);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.battle-info-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    margin-top: -0.1rem;
+}
+
+.battle-info h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.battle-rating {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--accent);
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.battle-elo {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0;
+    font-family: monospace;
+    font-weight: 500;
+    flex-shrink: 0;
+    line-height: 1.2;
+}
+
+.battle-rating-editor-container {
+    margin-top: 0.75rem;
+    width: 100%;
+}
+
+.battle-rating-editor {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.battle-rating-editor-label {
+    flex: 1 1 100%;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+}
+
+.battle-rating-input {
+    width: 120px;
+    min-width: 100px;
+    border-radius: 12px;
+    border: 1px solid #334155;
+    background: #0b1220;
+    color: #e2e8f0;
+    padding: 0.7rem 0.9rem;
+    font-size: 1rem;
+}
+
+.battle-rating-save-button {
+    border: none;
+    background: #c4302b;
+    color: white;
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.battle-rating-save-button:hover { background: #e14a4a; }
+
+.battle-rating-editor-confirmed {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.12);
+}
+
+.battle-rating-editor-confirmed .battle-rating-input {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.08);
+}
+
+/* Elo delta inline */
+.elo-gain, .elo-loss {
+    display: inline-block;
+    margin-left: 0.4rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    opacity: 0;
+    transform: scale(0.85);
+    animation: eloDeltaPop 0.35s ease-out forwards;
+    white-space: nowrap;
+}
+
+.elo-gain { color: #7cf77c; }
+.elo-loss { color: #ff7f7f; }
+
+@keyframes eloDeltaPop {
+    from { opacity: 0; transform: scale(0.85); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.battle-divider {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 2rem;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 2px;
+}
+
+.battle-divider::before,
+.battle-divider::after {
+    content: '';
+    width: 2px;
+    height: 30px;
+    background: var(--border);
+}
+
+.battle-divider-text {
+    color: var(--accent);
+    text-shadow: 0 0 10px rgba(196,48,43,0.5);
+}
+
+.battle-result-container {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3000;
+    animation: battleSlideUp 0.5s ease-out;
+}
+
+@keyframes battleSlideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(50px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.battle-result-popup {
+    background: var(--accent);
+    color: white;
+    padding: 1.5rem 2rem;
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.8);
+    text-align: center;
+    font-family: 'Cinzel', serif;
+}
+
+.battle-result-popup h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.8rem;
+}
+
+.battle-result-popup p {
+    margin: 0.3rem 0;
+    font-size: 1rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.elo-delta {
+    font-weight: 700;
+    font-size: 1.3rem;
+    margin-top: 0.8rem;
+}
+
+.close-battle {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    font-size: 2rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    z-index: 10;
+}
+
+.close-battle:hover { color: var(--accent); }

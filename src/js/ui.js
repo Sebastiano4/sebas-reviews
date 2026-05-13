@@ -8,7 +8,7 @@
  * In pratica, è quello che gestisce i "bottoni" e il look dell'app.
  */
 
-import { updateAdvancedStats, buildDirectorsRanking, buildActorsRanking, buildGenreChart, buildEloRanking } from './stats.js';
+import { updateAdvancedStats, buildDirectorsRanking, buildActorsRanking, buildGenreChart, buildEloRanking, cleanupStats } from './stats.js';
 import { auth, db, storage } from './firebase.js';
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 import { openModal, closeModal } from './modal-manager.js';
@@ -429,10 +429,16 @@ window.addEventListener('click', (event) => {
     if (event.target == reviewModal) closeModal('reviewModal');
 });
 
-// Stats modal
-document.querySelector('.close-stats').addEventListener('click', () => closeModal('statsModal'));
+// Stats modal — cleanup delle chart instances alla chiusura
+document.querySelector('.close-stats').addEventListener('click', () => {
+    cleanupStats();
+    closeModal('statsModal');
+});
 window.addEventListener('click', (event) => {
-    if (event.target == statsModal) closeModal('statsModal');
+    if (event.target == statsModal) {
+        cleanupStats();
+        closeModal('statsModal');
+    }
 });
 
 // Trailer modal
