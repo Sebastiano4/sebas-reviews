@@ -337,30 +337,7 @@ onAuthStateChanged(auth, async (user) => {
             }
             updateProfileButtonAvatar(profilePic);
         }
-
-        // --- REAL-TIME NICKNAME SYNC ---
-        // Ascolta i cambiamenti del documento dell'utente in Firestore.
-        // Registrato nel registry per essere chiuso automaticamente al logout.
-        const userRef = doc(db, "users", user.uid);
-        registerListener('user:profile', onSnapshot(userRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const userData = docSnap.data();
-                if (userData.nickname) {
-                    localStorage.setItem('sebas-nickname', userData.nickname);
-                    const profileNicknameEl = document.getElementById('profileNickname');
-                    if (profileNicknameEl) {
-                        profileNicknameEl.innerText = userData.nickname;
-                    }
-                }
-            }
-        }, (error) => {
-            console.warn('Errore nel listener del nickname:', error);
-        }));
-
-        renderGallery();
-        startDynamicSpotlight();
-
-        // --- ELO RANKING BATTLE SYSTEM ---
+            loadExploreGenres().catch(err => console.error('Errore nel caricamento generi:', err));
         // Initialize battle button
         const bottomBattleBtn = document.getElementById('bottomBattleBtn');
         if (bottomBattleBtn) {
@@ -747,8 +724,6 @@ async function loadExploreGenres() {
         // Opzionalmente: lascia la select vuota o nascondi il filtro
     }
 }
-loadExploreGenres().catch(err => console.error('Errore nel caricamento generi:', err));
-
 document.getElementById('applyExploreFilters')?.addEventListener('click', () => {
     exploreFilters.genre = document.getElementById('exploreGenre').value;
     exploreFilters.year = document.getElementById('exploreYear').value;

@@ -16,17 +16,16 @@ const tmdbProxyFn = httpsCallable(functions, 'tmdbProxy');
  * primo onAuthStateChanged arriva con context.auth === null e il proxy
  * risponde "Utente non autenticato".
  */
-let authReadyPromise = null;
 function waitForAuthReady() {
-  if (authReadyPromise) return authReadyPromise;
-  authReadyPromise = new Promise(resolve => {
-    if (auth.currentUser) { resolve(auth.currentUser); return; }
+  if (auth.currentUser) {
+    return Promise.resolve(auth.currentUser);
+  }
+  return new Promise(resolve => {
     const unsub = auth.onAuthStateChanged(user => {
       unsub();
       resolve(user);
     });
   });
-  return authReadyPromise;
 }
 
 async function tmdbFetch(path, params = {}) {

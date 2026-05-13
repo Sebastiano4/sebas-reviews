@@ -9,7 +9,7 @@
  */
 
 import { updateAdvancedStats, buildDirectorsRanking, buildActorsRanking, buildGenreChart, buildEloRanking, cleanupStats, showVaultSkeleton } from './stats.js';
-import { renderProfileSkeleton } from './utils.js';
+import { renderProfileSkeleton, showToast } from './utils.js';
 import { auth, db, storage } from './firebase.js';
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 import { openModal, closeModal } from './modal-manager.js';
@@ -473,11 +473,14 @@ window.addEventListener('click', (event) => {
 });
 
 // Directors ranking modal
-document.getElementById('openDirectorsRankingBtn').addEventListener('click', () => {
-    openModal('directorsRankingModal');
-    buildDirectorsRanking();
-});
-document.querySelector('.close-ranking').addEventListener('click', () => {
+const openDirectorsRankingBtn = document.getElementById('openDirectorsRankingBtn');
+if (openDirectorsRankingBtn) {
+    openDirectorsRankingBtn.addEventListener('click', () => {
+        openModal('directorsRankingModal');
+        buildDirectorsRanking();
+    });
+}
+document.querySelector('.close-ranking')?.addEventListener('click', () => {
     closeModal('directorsRankingModal');
 });
 window.addEventListener('click', (event) => {
@@ -488,11 +491,14 @@ window.addEventListener('click', (event) => {
 });
 
 // Actors ranking modal
-document.getElementById('openActorsRankingBtn')?.addEventListener('click', () => {
-    openModal('actorsRankingModal');
-    buildActorsRanking();
-});
-document.querySelector('.close-actors-ranking').addEventListener('click', () => {
+const openActorsRankingBtn = document.getElementById('openActorsRankingBtn');
+if (openActorsRankingBtn) {
+    openActorsRankingBtn.addEventListener('click', () => {
+        openModal('actorsRankingModal');
+        buildActorsRanking();
+    });
+}
+document.querySelector('.close-actors-ranking')?.addEventListener('click', () => {
     closeModal('actorsRankingModal');
 });
 window.addEventListener('click', (event) => {
@@ -501,11 +507,14 @@ window.addEventListener('click', (event) => {
 });
 
 // Genre chart modal
-document.getElementById('openGenreChartBtn').addEventListener('click', () => {
-    openModal('genreChartModal');
-    buildGenreChart();
-});
-document.querySelector('.close-genre-chart').addEventListener('click', () => {
+const openGenreChartBtn = document.getElementById('openGenreChartBtn');
+if (openGenreChartBtn) {
+    openGenreChartBtn.addEventListener('click', () => {
+        openModal('genreChartModal');
+        buildGenreChart();
+    });
+}
+document.querySelector('.close-genre-chart')?.addEventListener('click', () => {
     closeModal('genreChartModal');
 });
 window.addEventListener('click', (event) => {
@@ -536,28 +545,48 @@ window.addEventListener('click', (event) => {
 });
 
 // Stats button
-document.getElementById('statsBtn').onclick = () => { showVaultSkeleton(); openModal('statsModal'); updateAdvancedStats(); };
+const statsBtn = document.getElementById('statsBtn');
+if (statsBtn) {
+    statsBtn.addEventListener('click', () => { showVaultSkeleton(); openModal('statsModal'); updateAdvancedStats(); });
+}
 
 // Trailer button
-document.getElementById('trailerBtn')?.addEventListener('click', async ()=>{
-    const currentUser = getCurrentUser();
-    const currentMovieId = getCurrentMovieId();
-    if (!currentUser || !currentMovieId) return;
-    const snap = await getDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
-    const m = snap.data();
-    const movieResult = await getFirstMovieByTitleYear(m.title, m.year);
-    if(movieResult){
-        const vData = await getMovieVideos(movieResult.id);
-        const t = vData.results.find(v=>v.type==='Trailer' && v.site==='YouTube');
-        if(t) {
-            document.getElementById('trailerIframe').src = `https://www.youtube.com/embed/${t.key}`;
-            openModal('trailerModal');
+const trailerBtn = document.getElementById('trailerBtn');
+if (trailerBtn) {
+    trailerBtn.addEventListener('click', async () => {
+        try {
+            const currentUser = getCurrentUser();
+            const currentMovieId = getCurrentMovieId();
+            if (!currentUser || !currentMovieId) {
+                showToast('Devi essere autenticato e avere un film selezionato per vedere il trailer.', 4000);
+                return;
+            }
+            const snap = await getDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
+            const m = snap.data();
+            const movieResult = await getFirstMovieByTitleYear(m.title, m.year);
+            if (movieResult) {
+                const vData = await getMovieVideos(movieResult.id);
+                const t = vData.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+                if (t) {
+                    document.getElementById('trailerIframe').src = `https://www.youtube.com/embed/${t.key}`;
+                    openModal('trailerModal');
+                } else {
+                    showToast('Trailer non trovato per questo film.', 4000);
+                }
+            } else {
+                showToast('Film non trovato su TMDB.', 4000);
+            }
+        } catch (err) {
+            console.error('Trailer error:', err);
+            showToast(`Errore trailer: ${err.message || 'Controlla la connessione'}`, 5000);
         }
-    }
-});
+    });
+}
 
 // Export functionality
-document.getElementById('exportDataBtn2')?.addEventListener('click', async () => {
+const exportDataBtn2 = document.getElementById('exportDataBtn2');
+if (exportDataBtn2) {
+    exportDataBtn2.addEventListener('click', async () => {
     const currentUser = getCurrentUser();
     if (!currentUser) return alert("You must be logged in to export data.");
 
