@@ -1342,10 +1342,10 @@ body.theme-light .custom-select-option:hover {
 }
 
 .vault-modal .close-stats {
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    z-index: 1000;
+    position: fixed;
+    top: 34px;
+    right: 20px;
+    z-index: 99999;
     width: 44px;
     height: 44px;
     background: var(--accent) !important;
