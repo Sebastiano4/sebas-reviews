@@ -678,8 +678,8 @@ document.getElementById('importDataBtn2')?.addEventListener('change', async (e) 
 
     // Read the file as text to trigger the onload function above
     reader.readAsText(file);
-    }
-});
+    });
+}
 
 // --- DEPENDENCIES FROM OTHER MODULES ---
 // Queste funzioni e oggetti vengono "iniettati" da app.js per far funzionare i bottoni.
