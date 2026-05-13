@@ -258,27 +258,47 @@ export function showProfileMainView() {
 
 export function attachProfileListeners() {
     // Edit Nickname
-    document.getElementById('editNicknameBtn')?.addEventListener('click', async () => {
+    document.getElementById('editNicknameBtn')?.addEventListener('click', () => {
         const current = document.getElementById('profileNickname').innerText;
-        const newNick = prompt('Enter new nickname:', current);
-        if (newNick && newNick.trim() !== '') {
-            const trimmedNick = newNick.trim();
-            localStorage.setItem('sebas-nickname', trimmedNick);
-            document.getElementById('profileNickname').innerText = trimmedNick;
-            showToast('Saving nickname...', 2000);
+        const input = document.getElementById('nicknameInput');
+        if (input) input.value = current;
+        openModal('nicknameModal');
+    });
 
-            const currentUser = getCurrentUser();
-            if (currentUser) {
-                try {
-                    const userDocRef = doc(db, "users", currentUser.uid);
-                    await setDoc(userDocRef, { nickname: trimmedNick }, { merge: true });
-                    showToast('Nickname saved to Firestore!', 3000);
-                } catch (error) {
-                    console.error('Nickname save failed:', error);
-                    showToast('Failed to save nickname to Firestore.', 4000);
-                }
+    document.getElementById('nicknameCancelBtn')?.addEventListener('click', () => {
+        closeModal('nicknameModal');
+    });
+
+    document.querySelector('#nicknameModal .close-nickname')?.addEventListener('click', () => {
+        closeModal('nicknameModal');
+    });
+
+    document.getElementById('nicknameConfirmBtn')?.addEventListener('click', async () => {
+        const input = document.getElementById('nicknameInput');
+        const trimmedNick = input?.value?.trim();
+        if (!trimmedNick) return;
+
+        localStorage.setItem('sebas-nickname', trimmedNick);
+        document.getElementById('profileNickname').innerText = trimmedNick;
+        closeModal('nicknameModal');
+        showToast('Saving nickname...', 2000);
+
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            try {
+                const userDocRef = doc(db, "users", currentUser.uid);
+                await setDoc(userDocRef, { nickname: trimmedNick }, { merge: true });
+                showToast('Nickname saved!', 3000);
+            } catch (error) {
+                console.error('Nickname save failed:', error);
+                showToast('Failed to save nickname to Firestore.', 4000);
             }
         }
+    });
+
+    document.getElementById('nicknameInput')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('nicknameConfirmBtn')?.click();
+        if (e.key === 'Escape') closeModal('nicknameModal');
     });
 
     // Caricamento foto profilo con Firebase Storage e salvataggio URL su Firestore
