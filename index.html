@@ -232,59 +232,145 @@
         </div>
     </div>
 
-    <!-- ==================== MODALE STATISTICHE (VAULT) ==================== -->
-    <div id="statsModal" class="modal">
-        <div class="modal-content review-content" style="max-width: 1000px;">
+    <!-- ==================== VAULT MODAL (TABBED) ==================== -->
+    <div id="statsModal" class="modal vault-modal">
+        <div class="modal-content review-content vault-content">
             <span class="close-stats">&times;</span>
-            <h2 style="text-align:center;">Cinema Stats Vault</h2>
-            <button id="openVaultMapBtn" class="btn-primary" style="margin: 10px auto 20px; display: block; background: #2563eb;">🌍 Mappa del Vault</button>
 
-            <div id="vaultStatsContent">
-                <div class="stats-grid">
-                    <div class="stat-card"><h3 id="statTotalMovies">0</h3><p>Watched</p></div>
-                    <div class="stat-card"><h3 id="statTotalHours">0h</h3><p>Total Time</p></div>
-                    <div class="stat-card"><h3 id="statAvgRating">0.0</h3><p>Mean Score</p></div>
-                    <div class="stat-card"><h3 id="statMedian">0.0</h3><p>Median Score</p></div>
+            <header class="vault-header">
+                <div class="vault-title-wrap">
+                    <p class="vault-eyebrow">YOUR CINEMA</p>
+                    <h2 class="vault-title">Stats Vault</h2>
                 </div>
-                <div class="advanced-stats-row">
-                    <div class="stat-mini"><strong>Std Deviation:</strong> <span id="statStdDev">0.0</span></div>
-                    <div class="stat-mini"><strong>Written Reviews:</strong> <span id="statReviewsCount">0</span></div>
-                </div>
-                <div style="margin:20px 0;"><canvas id="ratingChart" height="120"></canvas></div>
-                <div class="stats-directors">
-                    <h3>👑 Top Directors</h3>
-                    <div id="topDirectorsList"></div>
-                    <button id="openDirectorsRankingBtn" class="btn-primary" style="margin-top: 10px; background: #1e293b;">📋 Vedi classifica completa (Top 25)</button>
-                </div>
-                <div class="stats-actors" style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 16px; margin-top: 20px;">
-                    <h3 style="margin-top: 0; font-family: 'Cinzel', serif; color: var(--accent);">🎭 Top Actors</h3>
-                    <div id="topActorsList"></div>
-                    <button id="openActorsRankingBtn" class="btn-primary" style="margin-top: 10px; background: #1e293b;">📋 Vedi classifica completa (Top 25)</button>
-                </div>
-                <div class="stats-genres">
-                    <h3>⭐ Highest Rated Genres</h3>
-                    <div id="topGenresList"></div>
-                    <button id="openGenreChartBtn" class="btn-primary" style="margin-top: 10px; background: #1e293b;">📊 Media voti per genere</button>
-                </div>
-                <div class="stats-time">
-                    <h3>⏱️ Total Watch Time by Director</h3>
-                    <div id="directorTimeList"></div>
-                </div>
-                <div class="stats-elo">
-                    <h3>🏆 Elo Ranking</h3>
-                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 10px;">Sistema di confronto A/B per determinare i tuoi film preferiti.</p>
-                    <button id="openEloRankingBtn" class="btn-primary" style="background: #1e293b;">📋 Vedi classifica completa</button>
-                </div>
+            </header>
+
+            <nav class="vault-tabs" role="tablist" aria-label="Vault sections">
+                <button class="vault-tab active" role="tab" data-tab="overview" aria-selected="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+                    <span>Overview</span>
+                </button>
+                <button class="vault-tab" role="tab" data-tab="people" aria-selected="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>People</span>
+                </button>
+                <button class="vault-tab" role="tab" data-tab="genres" aria-selected="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                    <span>Genres</span>
+                </button>
+                <button class="vault-tab" role="tab" data-tab="map" aria-selected="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <span>Map</span>
+                </button>
+                <span class="vault-tab-indicator" aria-hidden="true"></span>
+            </nav>
+
+            <div id="vaultStatsContent" class="vault-panels">
+
+                <!-- OVERVIEW TAB -->
+                <section class="vault-panel active" data-panel="overview" role="tabpanel">
+                    <div class="vault-stat-strip">
+                        <div class="vault-stat">
+                            <span class="vault-stat-value" id="statTotalMovies">0</span>
+                            <span class="vault-stat-label">Watched</span>
+                        </div>
+                        <div class="vault-stat">
+                            <span class="vault-stat-value" id="statTotalHours">0h</span>
+                            <span class="vault-stat-label">Total Time</span>
+                        </div>
+                        <div class="vault-stat">
+                            <span class="vault-stat-value" id="statAvgRating">0.0</span>
+                            <span class="vault-stat-label">Mean</span>
+                        </div>
+                        <div class="vault-stat">
+                            <span class="vault-stat-value" id="statMedian">0.0</span>
+                            <span class="vault-stat-label">Median</span>
+                        </div>
+                    </div>
+                    <div class="vault-advanced-row">
+                        <span class="vault-pill"><strong>σ</strong> <span id="statStdDev">0.0</span></span>
+                        <span class="vault-pill"><strong>Reviews</strong> <span id="statReviewsCount">0</span></span>
+                    </div>
+                    <div class="vault-chart-wrap"><canvas id="ratingChart" height="120"></canvas></div>
+
+                    <div class="vault-section">
+                        <div class="vault-section-head">
+                            <h3 class="vault-section-title">Elo Ranking</h3>
+                            <p class="vault-section-sub">Confronti A/B per i tuoi film preferiti</p>
+                        </div>
+                        <button id="openEloRankingBtn" class="vault-action-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                            <span>View Full Ranking</span>
+                            <svg class="vault-action-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="vault-section">
+                        <div class="vault-section-head">
+                            <h3 class="vault-section-title">Total Watch Time</h3>
+                            <p class="vault-section-sub">By director</p>
+                        </div>
+                        <div id="directorTimeList" class="vault-chip-list"></div>
+                    </div>
+                </section>
+
+                <!-- PEOPLE TAB -->
+                <section class="vault-panel" data-panel="people" role="tabpanel" hidden>
+                    <div class="vault-section">
+                        <div class="vault-section-head">
+                            <h3 class="vault-section-title">Top Directors</h3>
+                            <p class="vault-section-sub">Best rated · min 5 films</p>
+                        </div>
+                        <div id="topDirectorsList" class="vault-chip-list"></div>
+                        <button id="openDirectorsRankingBtn" class="vault-action-btn">
+                            <span>See full Top 25</span>
+                            <svg class="vault-action-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="vault-section">
+                        <div class="vault-section-head">
+                            <h3 class="vault-section-title">Top Actors</h3>
+                            <p class="vault-section-sub">By appearances</p>
+                        </div>
+                        <div id="topActorsList" class="vault-chip-list"></div>
+                        <button id="openActorsRankingBtn" class="vault-action-btn">
+                            <span>See full Top 25</span>
+                            <svg class="vault-action-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- GENRES TAB -->
+                <section class="vault-panel" data-panel="genres" role="tabpanel" hidden>
+                    <div class="vault-section">
+                        <div class="vault-section-head">
+                            <h3 class="vault-section-title">Highest Rated</h3>
+                            <p class="vault-section-sub">Min 2 films per genre</p>
+                        </div>
+                        <div id="topGenresList" class="vault-chip-list"></div>
+                        <button id="openGenreChartBtn" class="vault-action-btn">
+                            <span>Average ratings by genre</span>
+                            <svg class="vault-action-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- MAP TAB -->
+                <section class="vault-panel" data-panel="map" role="tabpanel" hidden>
+                    <div class="vault-section vault-map-section">
+                        <div class="vault-section-head">
+                            <h3 class="vault-section-title">World Vault</h3>
+                            <p class="vault-section-sub" id="vaultMapSummary">Loading map…</p>
+                        </div>
+                        <div id="vaultMapContainer"></div>
+                        <div id="vaultMapCountryInfo" class="vault-map-country-info">Click a country to see films from your Vault.</div>
+                    </div>
+                </section>
+
             </div>
 
-            <div id="vaultMapView" class="vault-map-view" style="display:none;">
-                <div class="vault-map-header">
-                    <button id="closeVaultMapBtn" class="btn-primary" style="background: #1e293b; margin-bottom: 12px;">← Torna al Vault</button>
-                    <div id="vaultMapSummary" class="vault-map-summary">Caricamento mappa…</div>
-                </div>
-                <div id="vaultMapContainer"></div>
-                <div id="vaultMapCountryInfo" class="vault-map-country-info">Clicca su un paese per vedere i film della tua Vault.</div>
-            </div>
+            <!-- Legacy hidden node kept for backward-compat with stats.js toggles -->
+            <div id="vaultMapView" style="display:none;"></div>
         </div>
     </div>
 
@@ -405,47 +491,11 @@
         </div>
     </div>
 
-    <!-- ==================== MODALE PROFILO ==================== -->
-    <div id="profileModal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
+    <!-- ==================== PROFILE DRAWER ==================== -->
+    <div id="profileModal" class="modal profile-drawer-modal">
+        <div class="modal-content profile-drawer">
             <span class="close-profile">&times;</span>
-            <h2 style="font-family:'Cinzel',serif; color:var(--accent); margin-bottom:1.5rem;">👤 Profile</h2>
-            <div id="profileDynamicContent">
-                <div id="profileMainView">
-                    <div class="detail-section" style="margin-bottom:1.5rem;">
-                        <h4>📷 Avatar & Name</h4>
-                        <div style="display:flex; align-items:center; gap:16px;">
-                            <label for="profilePicInput" style="cursor:pointer; position:relative;">
-                                <img id="profilePicPreview" src="" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--accent); background:#1e293b;">
-                                <span style="position:absolute; bottom:0; right:0; background:var(--accent); color:white; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:0.7rem;">✎</span>
-                            </label>
-                            <input type="file" id="profilePicInput" accept="image/*" style="display:none;">
-                            <div style="flex:1;">
-                                <p id="profileNickname" style="font-weight:700; font-size:1.1rem; margin:0 0 4px 0;"></p>
-                                <p id="profileEmail" style="color:var(--text-muted); font-size:0.85rem; margin:0 0 6px 0;"></p>
-                                <button class="btn-primary" id="editNicknameBtn" style="padding:0.4rem 1rem; font-size:0.85rem;">✏️ Edit Nickname</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="detail-section" style="margin-bottom:1.5rem;">
-                        <h4>⚙️ Quick Actions</h4>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                            <button class="profile-btn" id="themeToggleProfile">🌙 Theme</button>
-                            <button class="profile-btn" id="openImportExportBtn">📁 Import / Export</button>
-                            <button class="profile-btn" id="clearCacheBtn">🗑️ Clear Cache</button>
-                            <button class="profile-btn" id="repairFromProfileBtn">🛠️ Repair Metadata</button>
-                        </div>
-                    </div>
-                    <div class="detail-section" style="margin-bottom:1.5rem;">
-                        <h4>🔐 Account</h4>
-                        <div style="display:flex; flex-direction:column; gap:10px;">
-                            <button class="profile-btn" id="logoutFromProfileBtn">🚪 Logout</button>
-                            <button class="profile-btn danger" id="deleteArchiveBtn">⚠️ Delete Entire Archive</button>
-                        </div>
-                    </div>
-                    <p style="margin-top:0.5rem; font-size:0.75rem; color:var(--text-muted); text-align:center;">Seba's Reviews v2.0 · Firebase + TMDB + OMDb</p>
-                </div>
-            </div>
+            <div id="profileDynamicContent"></div>
             <input type="file" id="importFileInput" accept=".json" style="display:none;">
         </div>
     </div>
