@@ -6,6 +6,27 @@
  * Sono funzioni "tuttofare" che usiamo un po' dappertutto.
  */
 
+/**
+ * Escape HTML special characters per evitare XSS quando si interpola
+ * testo proveniente da TMDB / Firestore in template literal HTML.
+ * Usare SEMPRE su titoli, trame, nomi, generi, anno, runtime, ecc.
+ */
+export function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/**
+ * Escape per valori usati come attributi (es. src, alt, title, value).
+ * Identico a escapeHtml ma esposto separatamente per chiarezza semantica.
+ */
+export const escapeAttr = escapeHtml;
+
 export function showSkeletonLoaders(count = 10) {
     const gallery = document.getElementById('gallery');
     let skeletonsHTML = '';
@@ -30,6 +51,94 @@ export function showSkeletonLoaders(count = 10) {
 export function removeSkeletonLoaders() {
     const skeletons = document.querySelectorAll('.skeleton-card');
     skeletons.forEach(s => s.remove());
+}
+
+/**
+ * Skeleton row per la classifica ELO — riproduce la geometria di .elo-movie-row
+ * (rank badge + poster + titolo + meta) per evitare layout shift quando i dati arrivano.
+ */
+export function renderEloSkeleton(container, count = 8) {
+    if (!container) return;
+    const rows = [];
+    for (let i = 0; i < count; i++) {
+        const isCompact = i > 2;
+        rows.push(`
+            <div class="elo-skeleton-row ${isCompact ? 'compact' : ''}" aria-hidden="true">
+                <div class="elo-skeleton-rank skeleton-pulse"></div>
+                <div class="elo-skeleton-poster skeleton-pulse"></div>
+                <div class="elo-skeleton-content">
+                    <div class="elo-skeleton-line skeleton-pulse" style="width: 70%;"></div>
+                    <div class="elo-skeleton-line skeleton-pulse" style="width: 40%; height: 10px;"></div>
+                    <div class="elo-skeleton-chips">
+                        <div class="elo-skeleton-chip skeleton-pulse"></div>
+                        <div class="elo-skeleton-chip skeleton-pulse"></div>
+                        <div class="elo-skeleton-chip skeleton-pulse" style="width: 80px;"></div>
+                    </div>
+                </div>
+            </div>
+        `);
+    }
+    container.innerHTML = rows.join('');
+}
+
+/**
+ * Skeleton per il modale Profilo — avatar + nome + email + griglia di pulsanti.
+ */
+export function renderProfileSkeleton(container) {
+    if (!container) return;
+    container.innerHTML = `
+        <div class="profile-skeleton" aria-hidden="true">
+            <div class="profile-skeleton-header">
+                <div class="profile-skeleton-avatar skeleton-pulse"></div>
+                <div class="profile-skeleton-text">
+                    <div class="profile-skeleton-line skeleton-pulse" style="width: 60%;"></div>
+                    <div class="profile-skeleton-line skeleton-pulse" style="width: 80%; height: 10px;"></div>
+                    <div class="profile-skeleton-line skeleton-pulse" style="width: 50%; height: 26px; margin-top: 8px;"></div>
+                </div>
+            </div>
+            <div class="profile-skeleton-section">
+                <div class="profile-skeleton-line skeleton-pulse" style="width: 40%; height: 14px; margin-bottom: 12px;"></div>
+                <div class="profile-skeleton-grid">
+                    <div class="profile-skeleton-button skeleton-pulse"></div>
+                    <div class="profile-skeleton-button skeleton-pulse"></div>
+                    <div class="profile-skeleton-button skeleton-pulse"></div>
+                    <div class="profile-skeleton-button skeleton-pulse"></div>
+                </div>
+            </div>
+            <div class="profile-skeleton-section">
+                <div class="profile-skeleton-line skeleton-pulse" style="width: 30%; height: 14px; margin-bottom: 12px;"></div>
+                <div class="profile-skeleton-button skeleton-pulse" style="width: 100%; height: 42px; margin-bottom: 8px;"></div>
+                <div class="profile-skeleton-button skeleton-pulse" style="width: 100%; height: 42px;"></div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Skeleton per la sezione Vault Stats (statistiche e mappa).
+ */
+export function renderVaultStatsSkeleton(container) {
+    if (!container) return;
+    container.innerHTML = `
+        <div class="vault-skeleton" aria-hidden="true">
+            <div class="vault-skeleton-grid">
+                ${Array.from({ length: 6 }).map(() => `
+                    <div class="vault-skeleton-card">
+                        <div class="vault-skeleton-line skeleton-pulse" style="width: 50%; height: 28px;"></div>
+                        <div class="vault-skeleton-line skeleton-pulse" style="width: 70%; height: 10px; margin-top: 10px;"></div>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="vault-skeleton-section">
+                <div class="vault-skeleton-line skeleton-pulse" style="width: 35%; height: 16px; margin-bottom: 12px;"></div>
+                <div class="vault-skeleton-line skeleton-pulse" style="width: 100%; height: 60px;"></div>
+            </div>
+            <div class="vault-skeleton-section">
+                <div class="vault-skeleton-line skeleton-pulse" style="width: 35%; height: 16px; margin-bottom: 12px;"></div>
+                <div class="vault-skeleton-line skeleton-pulse" style="width: 100%; height: 60px;"></div>
+            </div>
+        </div>
+    `;
 }
 
 export function showToast(message, duration = 2000) {

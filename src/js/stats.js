@@ -1,4 +1,4 @@
-import { getMedian, getStdDev, getRuntimeMinutes, ensureChartJs, ensureLeaflet } from './utils.js';
+import { getMedian, getStdDev, getRuntimeMinutes, ensureChartJs, ensureLeaflet, escapeHtml, escapeAttr, renderEloSkeleton, renderVaultStatsSkeleton } from './utils.js';
 import { fetchDirectorImage, fetchActorImage, getMovieDetails } from './tmdb.js';
 import { getEloRanking } from './elo.js';
 import { registerPopStateInterceptor } from './modal-manager.js';
@@ -33,7 +33,24 @@ export function cleanupStats() {
     }
 }
 
+let _vaultOriginalMarkup = null;
+
+export function showVaultSkeleton() {
+    const container = document.getElementById('vaultStatsContent');
+    if (!container) return;
+    if (container.querySelector('.vault-skeleton')) return;   // già skeleton attivo
+    if (_vaultOriginalMarkup === null) _vaultOriginalMarkup = container.innerHTML;
+    renderVaultStatsSkeleton(container);
+}
+
+function restoreVaultMarkup() {
+    const container = document.getElementById('vaultStatsContent');
+    if (!container || !container.querySelector('.vault-skeleton')) return;
+    if (_vaultOriginalMarkup !== null) container.innerHTML = _vaultOriginalMarkup;
+}
+
 export async function updateAdvancedStats() {
+    restoreVaultMarkup();
     const movies = await fetchAllMovies();
     const watched = movies.filter(m => !m.isWatchlist);
     if (!watched.length) return;
@@ -68,11 +85,11 @@ export async function updateAdvancedStats() {
         .slice(0, 5);
 
     document.getElementById('topDirectorsList').innerHTML = topDirs.length
-        ? topDirs.map(d => `<div class="stat-badge">${d.name} · ⭐ ${d.avg.toFixed(1)} (${d.count} film)</div>`).join('')
+        ? topDirs.map(d => `<div class="stat-badge">${escapeHtml(d.name)} · ⭐ ${d.avg.toFixed(1)} (${d.count} film)</div>`).join('')
         : '<p style="color: var(--text-muted); margin: 0;">Serve almeno 5 film votati per regista.</p>';
 
     const dirTime = Array.from(dirMap.entries()).sort((a, b) => b[1].time - a[1].time).slice(0, 5);
-    document.getElementById('directorTimeList').innerHTML = dirTime.map(([n, d]) => `<div class="stat-badge">${n} · ${Math.round(d.time / 60)}h</div>`).join('');
+    document.getElementById('directorTimeList').innerHTML = dirTime.map(([n, d]) => `<div class="stat-badge">${escapeHtml(n)} · ${Math.round(d.time / 60)}h</div>`).join('');
 
     const genreStats = new Map();
     watched.forEach(m => {
@@ -91,7 +108,7 @@ export async function updateAdvancedStats() {
         .slice(0, 5);
 
     document.getElementById('topGenresList').innerHTML = topGenres.length
-        ? topGenres.map(g => `<div class="stat-badge">${g.name} · ⭐ ${g.avg.toFixed(1)} (${g.count} film)</div>`).join('')
+        ? topGenres.map(g => `<div class="stat-badge">${escapeHtml(g.name)} · ⭐ ${g.avg.toFixed(1)} (${g.count} film)</div>`).join('')
         : '<p style="color: var(--text-muted); margin: 0;">Add more films to see top rated genres.</p>';
 
     const actorMap = new Map();
@@ -122,7 +139,7 @@ export async function updateAdvancedStats() {
         .slice(0, 5);
 
     document.getElementById('topActorsList').innerHTML = topActors.length
-        ? topActors.map(a => `<div class="stat-badge">${a.name} · ⭐ ${a.avg.toFixed(1)} (${a.count} film)</div>`).join('')
+        ? topActors.map(a => `<div class="stat-badge">${escapeHtml(a.name)} · ⭐ ${a.avg.toFixed(1)} (${a.count} film)</div>`).join('')
         : '<p style="color: var(--text-muted); margin: 0;">Guarda e valuta almeno 3 film per attore per vederli qui.</p>';
 
     if (ratingChartInstance) {
@@ -234,13 +251,13 @@ function showVaultMapCountryInfo(feature) {
 
     if (titles.length) {
         info.innerHTML = `
-            <h3>${name}</h3>
+            <h3>${escapeHtml(name)}</h3>
             <p style="margin:0 0 10px;">Hai visto ${titles.length} film di questo paese:</p>
-            <ul>${titles.map(title => `<li>${title}</li>`).join('')}</ul>
+            <ul>${titles.map(title => `<li>${escapeHtml(title)}</li>`).join('')}</ul>
         `;
     } else {
         info.innerHTML = `
-            <h3>${name}</h3>
+            <h3>${escapeHtml(name)}</h3>
             <p style="color: var(--text-muted); margin:0;">Nessun film ancora dalla tua Vault. Continua a esplorare!</p>
         `;
     }
@@ -388,26 +405,30 @@ export async function buildDirectorsRanking() {
     for (const dir of directors) {
         const imageUrl = await fetchDirectorImage(dir.name);
         const avatarHTML = imageUrl
-            ? `<img src="${imageUrl}" alt="${dir.name}" class="director-avatar">`
+            ? `<img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(dir.name)}" class="director-avatar">`
             : `<div class="director-avatar" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem;">🎬</div>`;
 
         const postersHTML = dir.allFilms.map(film =>
-            `<img src="${film.poster}" alt="${film.title}" class="director-film-poster" onclick="window.openReview('${film.id}')" title="${film.title} (${film.rating})" loading="lazy">`
+            `<img src="${escapeAttr(film.poster)}" alt="${escapeAttr(film.title)}" class="director-film-poster" data-movie-id="${escapeAttr(film.id)}" title="${escapeAttr(film.title)} (${escapeAttr(film.rating)})" loading="lazy">`
         ).join('');
 
-        container.innerHTML += `
+        container.insertAdjacentHTML('beforeend', `
       <div class="director-card">
         <span class="rank-badge">${rank}</span>
         ${avatarHTML}
         <div class="director-info">
-          <p class="director-name">${dir.name}</p>
+          <p class="director-name">${escapeHtml(dir.name)}</p>
           <p class="director-rating">⭐ ${dir.avg.toFixed(1)} (${dir.count} film)</p>
           <div class="director-posters-grid">${postersHTML}</div>
         </div>
       </div>
-    `;
+    `);
         rank++;
     }
+
+    container.querySelectorAll('.director-film-poster[data-movie-id]').forEach(img => {
+        img.addEventListener('click', () => window.openReview(img.dataset.movieId));
+    });
 
     if (directors.length === 0) {
         container.innerHTML = '<p style="text-align:center;">Nessun regista con almeno 3 film visti.</p>';
@@ -455,26 +476,30 @@ export async function buildActorsRanking() {
     for (const actor of topActors) {
         const imageUrl = await fetchActorImage(actor.name);
         const avatarHTML = imageUrl
-            ? `<img src="${imageUrl}" alt="${actor.name}" class="actor-avatar">`
+            ? `<img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(actor.name)}" class="actor-avatar">`
             : `<div class="actor-avatar" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem;">🎭</div>`;
 
         const postersHTML = actor.films.map(film =>
-            `<img src="${film.poster}" alt="${film.title}" class="actor-film-poster" onclick="window.openReview('${film.id}')" title="${film.title} (${film.rating})" loading="lazy">`
+            `<img src="${escapeAttr(film.poster)}" alt="${escapeAttr(film.title)}" class="actor-film-poster" data-movie-id="${escapeAttr(film.id)}" title="${escapeAttr(film.title)} (${escapeAttr(film.rating)})" loading="lazy">`
         ).join('');
 
-        container.innerHTML += `
+        container.insertAdjacentHTML('beforeend', `
             <div class="actor-card">
                 <span class="actor-rank-badge">${rank}</span>
                 ${avatarHTML}
                 <div class="actor-info">
-                    <p class="actor-name">${actor.name}</p>
+                    <p class="actor-name">${escapeHtml(actor.name)}</p>
                     <p class="actor-stats">⭐ ${actor.avg.toFixed(1)} (${actor.count} film)</p>
                     <div class="actor-posters-grid">${postersHTML}</div>
                 </div>
             </div>
-        `;
+        `);
         rank++;
     }
+
+    container.querySelectorAll('.actor-film-poster[data-movie-id]').forEach(img => {
+        img.addEventListener('click', () => window.openReview(img.dataset.movieId));
+    });
 
     if (topActors.length === 0) {
         container.innerHTML = '<p style="text-align:center;">Nessun attore con almeno 3 film visti.</p>';
@@ -534,7 +559,7 @@ export async function buildGenreChart() {
 
     container.innerHTML = genreList.map(g => `
     <div class="genre-list-item">
-      <span class="genre-name">${g.name}</span>
+      <span class="genre-name">${escapeHtml(g.name)}</span>
       <span class="genre-stats">⭐ ${g.avg.toFixed(1)} (${g.count} film)</span>
     </div>
   `).join('');
@@ -603,7 +628,7 @@ export async function buildEloRanking() {
         searchInfo.textContent = '';
     }
 
-    container.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Caricamento classifica Elo...</p>';
+    renderEloSkeleton(container, 10);
 
     try {
         const ranking = await getEloRanking();
@@ -626,18 +651,18 @@ export async function buildEloRanking() {
             const isCompact = rank > 3;
 
             htmlItems.push(`
-                <div class="elo-movie-row ${tier.class} ${isCompact ? 'compact' : 'top-three'}" data-movie-id="${movie.id}" data-elo-index="${rank - 1}" data-title="${normalizedTitle}" data-tier="${tier.label}" onclick="window.openReview('${movie.id}')">
-                    <span class="elo-rank-badge">${medal}</span>
-                    <img class="elo-poster" src="${poster}" alt="${movie.title}" loading="lazy">
+                <div class="elo-movie-row ${tier.class} ${isCompact ? 'compact' : 'top-three'}" data-movie-id="${escapeAttr(movie.id)}" data-elo-index="${rank - 1}" data-title="${escapeAttr(normalizedTitle)}" data-tier="${escapeAttr(tier.label)}" role="button" tabindex="0">
+                    <span class="elo-rank-badge">${escapeHtml(medal)}</span>
+                    <img class="elo-poster" src="${escapeAttr(poster)}" alt="${escapeAttr(movie.title)}" loading="lazy">
                     <div class="elo-row-content">
                         <div class="elo-row-header">
-                            <p class="elo-title">${movie.title}</p>
-                            <span class="elo-score">${eloText}</span>
+                            <p class="elo-title">${escapeHtml(movie.title)}</p>
+                            <span class="elo-score">${escapeHtml(eloText)}</span>
                         </div>
                         <div class="elo-meta-row">
-                            <span>⭐ ${movie.rating}/10</span>
-                            <span>${movie.year || 'N/A'}</span>
-                            <span class="elo-tier-badge ${tier.class}">${tier.label}</span>
+                            <span class="elo-meta-chip elo-meta-rating">⭐ ${escapeHtml(movie.rating)}/10</span>
+                            <span class="elo-meta-chip elo-meta-year">${escapeHtml(movie.year || 'N/A')}</span>
+                            <span class="elo-tier-badge ${tier.class}">${escapeHtml(tier.label)}</span>
                         </div>
                     </div>
                 </div>
@@ -646,6 +671,16 @@ export async function buildEloRanking() {
         }
 
         container.innerHTML = htmlItems.join('');
+        container.querySelectorAll('.elo-movie-row[data-movie-id]').forEach(row => {
+            const openReview = () => window.openReview(row.dataset.movieId);
+            row.addEventListener('click', openReview);
+            row.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openReview();
+                }
+            });
+        });
 
         const startInput = document.getElementById('eloStartIndex');
         const badgeFilter = document.getElementById('eloBadgeFilter');
@@ -654,7 +689,7 @@ export async function buildEloRanking() {
 
         if (badgeFilter) {
             badgeFilter.innerHTML = getEloBadgeOptions()
-                .map(opt => `<option value="${opt.value}">${opt.label}</option>`)
+                .map(opt => `<option value="${escapeAttr(opt.value)}">${escapeHtml(opt.label)}</option>`)
                 .join('');
         }
 

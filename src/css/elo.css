@@ -293,10 +293,27 @@
 .elo-meta-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.8rem;
+    gap: 0.6rem;
     align-items: center;
     color: var(--text-muted);
     font-size: 0.85rem;
+}
+
+.elo-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.elo-meta-rating { color: #fbbf24; }
+
+.elo-movie-row:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
 /* tier-badge più compatta nelle righe Elo */

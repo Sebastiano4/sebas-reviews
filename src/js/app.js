@@ -26,7 +26,9 @@ import {
   toBase64,
   getRuntimeMinutes,
   hapticFeedback,
-  ensurePapaParse
+  ensurePapaParse,
+  escapeHtml,
+  escapeAttr
 } from './utils.js';
 import { initTheme, initBottomNav, closeForm, closeReviewModal, openProfileModal, showProfileMainView, attachProfileListeners, showProfileConfirmPage, startRepairWithProgress, setUIDependencies } from './ui.js';
 import { setStatsDependencies, initVaultMap } from './stats.js';
@@ -140,9 +142,9 @@ function populateFilters(movies) {
     const dirs = [...new Set(movies.map(m => m.director))].filter(d => d && d !== 'Unknown').sort();
     const genresSet = new Set();
     movies.forEach(m => m.genres?.split(', ').forEach(g => genresSet.add(g)));
-    document.getElementById('filterYear').innerHTML = '<option value="">All Years</option>' + years.map(v => `<option value="${v}">${v}</option>`).join('');
-    document.getElementById('filterGenre').innerHTML = '<option value="">All Genres</option>' + Array.from(genresSet).sort().map(v => `<option value="${v}">${v}</option>`).join('');
-    document.getElementById('directorOptions').innerHTML = dirs.map(v => `<option value="${v}">`).join('');
+    document.getElementById('filterYear').innerHTML = '<option value="">All Years</option>' + years.map(v => `<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join('');
+    document.getElementById('filterGenre').innerHTML = '<option value="">All Genres</option>' + Array.from(genresSet).sort().map(v => `<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join('');
+    document.getElementById('directorOptions').innerHTML = dirs.map(v => `<option value="${escapeAttr(v)}">`).join('');
 }
 
 async function showRecommendations(movies) {
@@ -159,7 +161,7 @@ async function showRecommendations(movies) {
 
 function createSmallCard(m) {
     const div = document.createElement('div'); div.className='movie-card'; div.onclick=()=>openReview(m.id);
-    div.innerHTML = `<div class="poster-container"><img src="${m.poster}"></div><div class="card-info"><h3>${m.title}</h3></div>`;
+    div.innerHTML = `<div class="poster-container"><img src="${escapeAttr(m.poster)}" alt=""></div><div class="card-info"><h3>${escapeHtml(m.title)}</h3></div>`;
     return div;
 }
 
@@ -415,8 +417,8 @@ tmdbSearch.addEventListener('input', (e) => {
         data.results.slice(0,5).forEach(movie=>{
             const div = document.createElement('div'); 
             div.className = 'dropdown-item'; 
-            const posterHtml = movie.poster_path ? `<img src="https://image.tmdb.org/t/p/w92${movie.poster_path}" class="dropdown-poster">` : `<div class="dropdown-poster" style="background:#0c0e12;"></div>`;
-            div.innerHTML = `${posterHtml} <span>${movie.title} (${movie.release_date?.split('-')[0]||'N/A'})</span>`;
+            const posterHtml = movie.poster_path ? `<img src="https://image.tmdb.org/t/p/w92${encodeURIComponent(movie.poster_path).replace(/%2F/g,'/')}" alt="" class="dropdown-poster">` : `<div class="dropdown-poster" style="background:#0c0e12;"></div>`;
+            div.innerHTML = `${posterHtml} <span>${escapeHtml(movie.title)} (${escapeHtml(movie.release_date?.split('-')[0]||'N/A')})</span>`;
             div.onclick = () => fetchMovieDetailsAndSelect(movie.id);
             searchResults.appendChild(div);
         });
@@ -689,15 +691,15 @@ async function showExploreMovieDetails(tmdbId) {
     const originalLanguage = movie.original_language ? movie.original_language.toUpperCase() : 'N/A';
     
     content.innerHTML = `
-    <h2>${movie.title} (${releaseYear})</h2>
-    ${poster ? `<img src="${poster}" class="explore-movie-poster">` : ''}
-    <p><strong>Release Year:</strong> ${releaseYear}</p>
-    <p><strong>Original Language:</strong> ${originalLanguage}</p>
-    <p><strong>Average Rating:</strong> ⭐ ${movie.vote_average?.toFixed(1)} (${movie.vote_count} votes)</p>
-    <p><strong>Director:</strong> ${director}</p>
-    <p><strong>Genres:</strong> ${genres}</p>
-    <p><strong>Runtime:</strong> ${runtime}</p>
-    <p><strong>Overview:</strong> ${movie.overview || 'No overview available.'}</p>
+    <h2>${escapeHtml(movie.title)} (${escapeHtml(releaseYear)})</h2>
+    ${poster ? `<img src="${escapeAttr(poster)}" alt="" class="explore-movie-poster">` : ''}
+    <p><strong>Release Year:</strong> ${escapeHtml(releaseYear)}</p>
+    <p><strong>Original Language:</strong> ${escapeHtml(originalLanguage)}</p>
+    <p><strong>Average Rating:</strong> ⭐ ${escapeHtml(movie.vote_average?.toFixed(1))} (${escapeHtml(movie.vote_count)} votes)</p>
+    <p><strong>Director:</strong> ${escapeHtml(director)}</p>
+    <p><strong>Genres:</strong> ${escapeHtml(genres)}</p>
+    <p><strong>Runtime:</strong> ${escapeHtml(runtime)}</p>
+    <p><strong>Overview:</strong> ${escapeHtml(movie.overview || 'No overview available.')}</p>
     <button class="btn-primary" id="addFromExploreBtn">➕ Add to Your List</button>
     <!-- 👇 AGGIUNGI QUESTO PULSANTE -->
     <button class="btn-primary" id="openFullDetailsBtn" style="background:#1e293b; margin-top:8px;">📊 Full Details</button>
@@ -771,13 +773,13 @@ function createCardElement(movie, isWatchlistMode) {
     card.setAttribute('data-id', movie.id);
     card.innerHTML = `
         <div class="poster-container">
-            <img src="${movie.poster}" loading="lazy">
+            <img src="${escapeAttr(movie.poster)}" alt="" loading="lazy">
         </div>
         <div class="card-info">
-            <h3>${movie.title}</h3>
-            <div class="card-awards-mini">${(movie.awards||[]).map(a => `<span class="award-badge" title="${a}">${a.split(' ')[0]}</span>`).join('')}</div>
+            <h3>${escapeHtml(movie.title)}</h3>
+            <div class="card-awards-mini">${(movie.awards||[]).map(a => `<span class="award-badge" title="${escapeAttr(a)}">${escapeHtml(a.split(' ')[0])}</span>`).join('')}</div>
             <div class="quick-tools">
-                <span style="color:var(--accent);">★ ${movie.rating||'-'}</span>
+                <span style="color:var(--accent);">★ ${escapeHtml(movie.rating||'-')}</span>
                 <button class="btn-quick vote-btn">VOTE</button>
             </div>
         </div>
@@ -905,13 +907,13 @@ async function loadMoreMovies() {
             card.className = 'movie-card';
             card.innerHTML = `
                 <div class="poster-container">
-                    <img src="${m.poster}" loading="lazy">
+                    <img src="${escapeAttr(m.poster)}" alt="" loading="lazy">
                 </div>
                 <div class="card-info">
-                    <h3>${m.title}</h3>
+                    <h3>${escapeHtml(m.title)}</h3>
                     <p style="color:var(--accent); margin:0.5rem 0;">
-                        ⭐ ${m.vote_average?.toFixed(1) || 'N/A'} 
-                        <small style="color:var(--text-muted);">(${m.vote_count || 0} votes)</small>
+                        ⭐ ${escapeHtml(m.vote_average?.toFixed(1) || 'N/A')}
+                        <small style="color:var(--text-muted);">(${escapeHtml(m.vote_count || 0)} votes)</small>
                     </p>
                 </div>
             `;
@@ -1026,10 +1028,10 @@ async function openReview(id, movieData = null) {
     // Popola i campi immediatamente
     document.getElementById('viewTitle').innerText = m.title;
     document.getElementById('viewRating').innerText = m.isWatchlist ? "Watchlist" : `★ ${m.rating}/10`;
-    document.getElementById('viewMetadata').innerHTML = `${m.director} | ${m.year} | ${m.runtime} | ${m.genres}`;
+    document.getElementById('viewMetadata').textContent = `${m.director} | ${m.year} | ${m.runtime} | ${m.genres}`;
     document.getElementById('viewPlot').innerText = m.plot;
-    document.getElementById('dynamicBackdrop').style.backgroundImage = `url('${m.backdrop}')`;
-    document.getElementById('viewAwards').innerHTML = (m.awards || []).map(a => `<span>${a}</span>`).join('');
+    document.getElementById('dynamicBackdrop').style.backgroundImage = `url('${encodeURI(m.backdrop || '')}')`;
+    document.getElementById('viewAwards').innerHTML = (m.awards || []).map(a => `<span>${escapeHtml(a)}</span>`).join('');
 
     const cont = document.getElementById('reviewContainer');
     if (m.fileData) {
@@ -1059,9 +1061,9 @@ async function openReview(id, movieData = null) {
                 const rt = ratings.find(r => r.Source === 'Rotten Tomatoes');
                 const meta = ratings.find(r => r.Source === 'Metacritic');
                 let html = '<div style="margin-top: 10px; font-size: 0.9rem; color: var(--text-muted);">';
-                if (imdb) html += `🎬 IMDb: ${imdb.Value} `;
-                if (rt) html += `🍅 Rotten Tomatoes: ${rt.Value} `;
-                if (meta) html += `📊 Metacritic: ${meta.Value}`;
+                if (imdb) html += `🎬 IMDb: ${escapeHtml(imdb.Value)} `;
+                if (rt) html += `🍅 Rotten Tomatoes: ${escapeHtml(rt.Value)} `;
+                if (meta) html += `📊 Metacritic: ${escapeHtml(meta.Value)}`;
                 html += '</div>';
                 omdbContainer.innerHTML = html;
             }
@@ -1458,39 +1460,39 @@ async function showFullMovieDetails(tmdbId, imdbId = null) {
         const imdbLink = imdbActual ? `https://www.imdb.com/title/${imdbActual}` : '#';
 
         content.innerHTML = `
-            <h2 style="font-family:'Cinzel',serif; margin:0;">${movie.title} (${releaseYear})</h2>
-            
+            <h2 style="font-family:'Cinzel',serif; margin:0;">${escapeHtml(movie.title)} (${escapeHtml(releaseYear)})</h2>
+
             <button class="btn-primary" id="addFromFullDetailsBtn" style="width:100%; padding:1rem; font-size:1.1rem; margin:15px 0;">
                 ➕ Add to Your List
             </button>
-            
-            ${poster ? `<img src="${poster}" style="width:150px; align-self:center; border-radius:12px; margin:10px 0;">` : ''}
-            
+
+            ${poster ? `<img src="${escapeAttr(poster)}" alt="" style="width:150px; align-self:center; border-radius:12px; margin:10px 0;">` : ''}
+
             <div class="detail-section">
                 <h4>🎬 Core Info</h4>
-                <p><strong>Director:</strong> ${director}</p>
-                <p><strong>Genres:</strong> ${genres}</p>
-                <p><strong>Runtime:</strong> ${runtime}</p>
-                <p><strong>Language:</strong> ${language}</p>
-                <p><strong>Countries:</strong> ${countries}</p>
-                <p><strong>Budget:</strong> ${budget} | <strong>Revenue:</strong> ${revenue}</p>
+                <p><strong>Director:</strong> ${escapeHtml(director)}</p>
+                <p><strong>Genres:</strong> ${escapeHtml(genres)}</p>
+                <p><strong>Runtime:</strong> ${escapeHtml(runtime)}</p>
+                <p><strong>Language:</strong> ${escapeHtml(language)}</p>
+                <p><strong>Countries:</strong> ${escapeHtml(countries)}</p>
+                <p><strong>Budget:</strong> ${escapeHtml(budget)} | <strong>Revenue:</strong> ${escapeHtml(revenue)}</p>
             </div>
 
             <div class="detail-section">
                 <h4>🌟 Cast</h4>
-                <p>${cast}</p>
+                <p>${escapeHtml(cast)}</p>
             </div>
 
             <div class="detail-section">
                 <h4>📊 Ratings</h4>
-                <p><strong>TMDB Average:</strong> ⭐ ${movie.vote_average?.toFixed(1)} (${movie.vote_count} votes)</p>
+                <p><strong>TMDB Average:</strong> ⭐ ${escapeHtml(movie.vote_average?.toFixed(1))} (${escapeHtml(movie.vote_count)} votes)</p>
             </div>
 
             <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;">
                 <!-- NUOVO PULSANTE FILMGRAB -->
                 <button class="btn-primary" id="openFilmGrabBtn" style="background:#1e293b; margin-top:10px;">📸 Stills on FilmGrab</button>
-                <a href="${tmdbLink}" target="_blank" class="external-link-btn">🌐 View on TMDB</a>
-                ${imdbLink !== '#' ? `<a href="${imdbLink}" target="_blank" class="external-link-btn">🎬 View on IMDb</a>` : ''}
+                <a href="${escapeAttr(tmdbLink)}" target="_blank" rel="noopener noreferrer" class="external-link-btn">🌐 View on TMDB</a>
+                ${imdbLink !== '#' ? `<a href="${escapeAttr(imdbLink)}" target="_blank" rel="noopener noreferrer" class="external-link-btn">🎬 View on IMDb</a>` : ''}
             </div>
         `;
 

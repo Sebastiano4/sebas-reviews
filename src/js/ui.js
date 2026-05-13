@@ -8,7 +8,8 @@
  * In pratica, è quello che gestisce i "bottoni" e il look dell'app.
  */
 
-import { updateAdvancedStats, buildDirectorsRanking, buildActorsRanking, buildGenreChart, buildEloRanking, cleanupStats } from './stats.js';
+import { updateAdvancedStats, buildDirectorsRanking, buildActorsRanking, buildGenreChart, buildEloRanking, cleanupStats, showVaultSkeleton } from './stats.js';
+import { renderProfileSkeleton } from './utils.js';
 import { auth, db, storage } from './firebase.js';
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 import { openModal, closeModal } from './modal-manager.js';
@@ -63,8 +64,9 @@ export function initBottomNav() {
 
             const view = item.getAttribute('data-view');
             if (view === 'stats') {
-                updateAdvancedStats();
+                showVaultSkeleton();
                 openModal('statsModal');
+                updateAdvancedStats();
             } else {
                 viewSelect.value = view;
                 viewSelect.onchange();
@@ -101,8 +103,12 @@ export const closeReviewModal = () => {
 export function openProfileModal() {
     const currentUser = getCurrentUser();
     if (!currentUser) return;
-    showProfileMainView();
+    // Mostra skeleton subito, apri il modal, poi monta la vista reale al prossimo tick
+    // così l'utente vede una struttura coerente invece di un flash bianco.
+    const container = document.getElementById('profileDynamicContent');
+    if (container) renderProfileSkeleton(container);
     openModal('profileModal');
+    requestAnimationFrame(() => showProfileMainView());
 }
 
 function getCacheBustedUrl(url) {
@@ -530,7 +536,7 @@ window.addEventListener('click', (event) => {
 });
 
 // Stats button
-document.getElementById('statsBtn').onclick = () => { updateAdvancedStats(); openModal('statsModal'); };
+document.getElementById('statsBtn').onclick = () => { showVaultSkeleton(); openModal('statsModal'); updateAdvancedStats(); };
 
 // Trailer button
 document.getElementById('trailerBtn')?.addEventListener('click', async ()=>{

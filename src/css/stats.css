@@ -158,6 +158,167 @@
     100% { background-position: -200% 0; }
 }
 
+/* --- SKELETON BASE (riusabile per ELO, Profile, Vault) --- */
+.skeleton-pulse {
+    background: linear-gradient(90deg,
+        rgba(255,255,255,0.04) 25%,
+        rgba(255,255,255,0.10) 50%,
+        rgba(255,255,255,0.04) 75%);
+    background-size: 200% 100%;
+    animation: skeletonPulse 1.4s ease-in-out infinite;
+    border-radius: 8px;
+}
+
+/* --- SKELETON ELO RANKING --- */
+.elo-skeleton-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.025);
+    margin-bottom: 0.75rem;
+}
+
+.elo-skeleton-row.compact {
+    gap: 0.75rem;
+    padding: 0.75rem;
+}
+
+.elo-skeleton-rank {
+    width: 46px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: 10px;
+}
+
+.elo-skeleton-poster {
+    width: 70px;
+    height: 100px;
+    border-radius: 14px;
+    flex-shrink: 0;
+}
+
+.elo-skeleton-row.compact .elo-skeleton-poster {
+    width: 50px;
+    height: 72px;
+}
+
+.elo-skeleton-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.elo-skeleton-line {
+    height: 14px;
+    border-radius: 6px;
+}
+
+.elo-skeleton-chips {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.elo-skeleton-chip {
+    width: 56px;
+    height: 22px;
+    border-radius: 999px;
+}
+
+/* --- SKELETON PROFILE --- */
+.profile-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    padding: 0.4rem 0;
+}
+
+.profile-skeleton-header {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    background: rgba(255,255,255,0.03);
+    padding: 1rem;
+    border-radius: 12px;
+}
+
+.profile-skeleton-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.profile-skeleton-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.profile-skeleton-line {
+    height: 14px;
+    border-radius: 6px;
+}
+
+.profile-skeleton-section {
+    background: rgba(255,255,255,0.03);
+    padding: 1rem;
+    border-radius: 12px;
+}
+
+.profile-skeleton-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.profile-skeleton-button {
+    height: 44px;
+    border-radius: 12px;
+}
+
+/* --- SKELETON VAULT STATS --- */
+.vault-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.vault-skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+}
+
+.vault-skeleton-card {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+}
+
+.vault-skeleton-card .vault-skeleton-line {
+    margin: 0 auto;
+}
+
+.vault-skeleton-line {
+    height: 14px;
+    border-radius: 6px;
+}
+
+.vault-skeleton-section {
+    background: rgba(0,0,0,0.3);
+    border-radius: 16px;
+    padding: 1rem;
+}
+
 /* --- DETTAGLI FILM (movieDetailsModal) --- */
 .close-movie-details {
     position: absolute;
