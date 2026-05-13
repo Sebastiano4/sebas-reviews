@@ -1336,7 +1336,7 @@ body.theme-light .custom-select-option:hover {
    ========================================= */
 
 .vault-modal .modal-content.vault-content {
-    max-width: 980px;
+    max-width: 880px;
     padding: 1.4rem 1.6rem 1.6rem;
     position: relative;
 }
