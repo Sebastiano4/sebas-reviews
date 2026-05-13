@@ -37,6 +37,7 @@ import { setStatsDependencies, initVaultMap } from './stats.js';
 import { startBattle, closeBattleModal, migrateMoviesToElo, resetEloSystemState } from './elo.js';
 import { initModalSystem, openModal, closeModal } from './modal-manager.js';
 import { registerListener, unregisterAll } from './listener-registry.js';
+import { enhanceAllSelects } from './custom-select.js';
 
 // --- GLOBALS ---
 let currentUser = null;
@@ -271,6 +272,7 @@ initVaultMap();
 initTheme();
 initBottomNav();
 initFiltersToggle();
+enhanceAllSelects();
 
 
 
