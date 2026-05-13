@@ -5,6 +5,10 @@
 .env.test.local
 .env.production.local
 
+# Claude Code worktrees and session state
+.claude/
+icon-*_old.png
+
 # Logs
 logs
 *.log
