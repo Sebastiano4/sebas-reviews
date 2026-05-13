@@ -113,6 +113,13 @@ export async function getMovieVideos(movieId) {
   });
 }
 
+export async function getSimilarMovies(movieId, page = 1) {
+  return tmdbFetch(`/movie/${movieId}/similar`, {
+    language: 'en-US',
+    page
+  });
+}
+
 export async function getFirstMovieByTitleYear(title, year) {
   const data = await searchMoviesWithYear(title, year, 1);
   return data?.results?.[0] || null;

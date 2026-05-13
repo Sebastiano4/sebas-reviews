@@ -15,7 +15,8 @@ import {
   getMovieDetailsWithCredits,
   getGenreList,
   getMovieVideos,
-  getFirstMovieByTitleYear
+  getFirstMovieByTitleYear,
+  getSimilarMovies
 } from './tmdb.js';
 import {
   showSkeletonLoaders,
@@ -1128,17 +1129,83 @@ document.getElementById('deleteBtn').addEventListener('click', async (event) => 
 });
 
 // --- SIMILAR MOVIES & RECOMMENDATIONS ---
+// Discovery-focused: pulls suggestions from TMDB, hides anything the user
+// already has in their watched collection, and flags items still in the
+// watchlist with a small badge. All filtering happens against the in-memory
+// cache — no extra Firestore reads.
 async function showSimilarMovies(id){
+    const grid = document.getElementById('similarGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
     const movies = await fetchAllMovies();
     const current = movies.find(m => m.id === id);
-    const scored = movies.filter(m => !m.isWatchlist && m.id !== id).map(m => {
-        let s=0; if(m.director === current.director) s+=5; 
-        if(m.genres?.split(', ').some(g => current.genres?.includes(g))) s+=3;
-        return {movie:m, score:s};
-    }).sort((a,b)=>b.score-a.score).slice(0,4);
-    const grid = document.getElementById('similarGrid');
-    grid.innerHTML = '';
-    scored.forEach(({movie})=> grid.appendChild(createSmallCard(movie)));
+    if (!current) return;
+
+    // Legacy movies in the archive may lack tmdbId — resolve it by title/year.
+    let tmdbId = current.tmdbId;
+    if (!tmdbId) {
+        try {
+            const lookup = await getFirstMovieByTitleYear(current.title, current.year);
+            tmdbId = lookup?.id || null;
+        } catch (err) {
+            console.warn('TMDB lookup for similar failed:', err);
+        }
+        if (!tmdbId) {
+            console.info('[similar] no tmdbId for', current.title);
+            return;
+        }
+    }
+
+    let results = [];
+    try {
+        const data = await getSimilarMovies(tmdbId);
+        results = Array.isArray(data?.results) ? data.results : [];
+    } catch (err) {
+        console.warn('Similar movies fetch failed:', err);
+        return;
+    }
+
+    const watchedIds = new Set();
+    const watchlistIds = new Set();
+    for (const m of movies) {
+        if (!m.tmdbId) continue;
+        const key = String(m.tmdbId);
+        if (m.isWatchlist) watchlistIds.add(key);
+        else watchedIds.add(key);
+    }
+
+    // Soglia di notorietà: scarta i titoli con pochi voti su TMDB per evitare
+    // suggerimenti di film praticamente sconosciuti.
+    const MIN_VOTE_COUNT = 1000;
+
+    const discovery = [];
+    for (const r of results) {
+        if (!r?.id) continue;
+        if ((r.vote_count || 0) < MIN_VOTE_COUNT) continue;
+        const key = String(r.id);
+        if (watchedIds.has(key)) continue;
+        discovery.push({ tmdb: r, inWatchlist: watchlistIds.has(key) });
+        if (discovery.length >= 4) break;
+    }
+
+    discovery.forEach(({ tmdb, inWatchlist }) => {
+        grid.appendChild(createDiscoveryCard(tmdb, inWatchlist));
+    });
+}
+
+function createDiscoveryCard(tmdb, inWatchlist) {
+    const div = document.createElement('div');
+    div.className = 'movie-card discovery-card';
+    div.onclick = () => showFullMovieDetails(tmdb.id);
+    const poster = tmdb.poster_path
+        ? `https://image.tmdb.org/t/p/w500${tmdb.poster_path}`
+        : 'https://via.placeholder.com/500x750?text=No+Poster';
+    const badge = inWatchlist
+        ? `<span class="watchlist-badge" title="In Watchlist" aria-label="In Watchlist">🔖</span>`
+        : '';
+    div.innerHTML = `<div class="poster-container">${badge}<img src="${escapeAttr(poster)}" alt=""></div><div class="card-info"><h3>${escapeHtml(tmdb.title || '')}</h3></div>`;
+    return div;
 }
 
 
@@ -1461,6 +1528,13 @@ async function showFullMovieDetails(tmdbId, imdbId = null) {
             </button>
 
             ${poster ? `<img src="${escapeAttr(poster)}" alt="" style="width:150px; align-self:center; border-radius:12px; margin:10px 0;">` : ''}
+
+            ${movie.overview ? `
+            <div class="detail-section">
+                <h4>📖 Plot</h4>
+                <p style="line-height:1.55;">${escapeHtml(movie.overview)}</p>
+            </div>
+            ` : ''}
 
             <div class="detail-section">
                 <h4>🎬 Core Info</h4>
