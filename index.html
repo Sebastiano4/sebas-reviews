@@ -1,26 +1,174 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seba's Reviews</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <link rel="manifest" href="manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+        /* Stili aggiuntivi per la modale moderna */
+        .modern-input {
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: #e2e8f0;
+            padding: 0.8rem 1rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            width: 100%;
+            transition: border 0.2s, box-shadow 0.2s;
+        }
+        .modern-input:focus {
+            outline: none;
+            border-color: #c4302b;
+            box-shadow: 0 0 0 3px rgba(196,48,43,0.3);
+        }
+        .small-input {
+            width: 48%;
+            display: inline-block;
+            margin-right: 2%;
+        }
+        .modern-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 0;
+        }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 1.5rem 0;
+        }
+        .toggle-label {
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #334155;
+            transition: 0.3s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #c4302b;
+        }
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+        .awards-section {
+            margin: 1.5rem 0;
+        }
+        .awards-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .award-chip {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 30px;
+            padding: 0.5rem 1.2rem;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .award-chip input {
+            display: none;
+        }
+        .award-chip.active {
+            background: #c4302b;
+            border-color: #c4302b;
+            color: white;
+            box-shadow: 0 4px 10px rgba(196,48,43,0.5);
+        }
+        .award-chip:hover {
+            border-color: #c4302b;
+        }
+        .modern-label {
+            display: block;
+            font-weight: 600;
+            color: #cbd5e1;
+            margin-bottom: 0.5rem;
+        }
+        .modern-file-input {
+            background: #0f172a;
+            border: 1px dashed #334155;
+            padding: 0.8rem;
+            border-radius: 12px;
+            width: 100%;
+            color: #94a3b8;
+        }
+        .modern-file-input::file-selector-button {
+            background: #c4302b;
+            border: none;
+            color: white;
+            padding: 0.4rem 1rem;
+            border-radius: 8px;
+            margin-right: 1rem;
+            cursor: pointer;
+        }
+        .selected-movie-preview {
+            background: #0f172a;
+            border-radius: 16px;
+            padding: 1.2rem;
+            border: 1px solid #334155;
+            margin-bottom: 1.5rem;
+        }
+    </style>
 </head>
-
 <body>
 
+    <!-- ==================== HEADER ==================== -->
     <header style="padding: 15px; background: #0f172a; text-align: right; border-bottom: 1px solid #1e293b; display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="profileBtn" class="btn-primary" style="background: transparent; border: 1px solid var(--border); padding: 0.5rem 1rem; font-size: 1.2rem;" title="Profilo">👤</button>
         <button id="login-btn" class="btn-primary">Login with Google</button>
-        <button id="logout-btn" class="btn-primary" style="display: none; background: #b91c1c;">Logout</button>
     </header>
 
-    <div id="app-content" style="display: none;">
+    <!-- ==================== CONTENUTO PRINCIPALE ==================== -->
+    <div id="app-content" style="display: none; padding-bottom: 80px;">
 
+        <!-- Barra di navigazione inferiore (solo mobile) -->
+        <div class="bottom-nav">
+            <button class="bottom-nav-item" data-view="explore"><span>🔍</span>Explore</button>
+            <button class="bottom-nav-item active" data-view="archive"><span>🎬</span>Archive</button>
+            <button class="bottom-nav-item" data-view="watchlist"><span>📋</span>Watchlist</button>
+            <button class="bottom-nav-item" id="bottomAddBtn"><span>➕</span>Add</button>
+            <button class="bottom-nav-item" id="bottomBattleBtn"><span>⚔️</span>Battle</button>
+            <button class="bottom-nav-item" data-view="stats"><span>📊</span>Vault</button>
+        </div>
+
+        <!-- Navbar superiore -->
         <nav class="navbar">
             <div class="brand">
                 <h1 class="logo">SEBA'S <span>REVIEWS</span></h1>
@@ -28,16 +176,19 @@
             </div>
             <div class="nav-actions">
                 <button id="statsBtn" class="btn-primary" style="background: #1e293b;">📊 Vault</button>
+                <button id="battleBtn" class="btn-primary" style="background: linear-gradient(135deg, #c4302b 0%, #8b2e27 100%); font-weight: 700;">⚔️ BATTLE</button>
                 <select id="viewMode" class="filter-select">
                     <option value="archive">View Archive</option>
                     <option value="watchlist">View Watchlist</option>
+                    <option value="explore">🔍 Explore</option>
                 </select>
                 <input type="text" id="mainSearch" placeholder="Search titles or awards...">
                 <button id="addBtn" class="btn-primary">+ New Entry</button>
             </div>
         </nav>
 
-        <div class="advanced-filters">
+        <!-- Filtri normali (Archivio / Watchlist) -->
+        <div id="normalFilters" class="advanced-filters" style="display:flex;">
             <select id="filterYear" class="filter-select"><option value="">All Years</option></select>
             <input type="text" id="filterDirector" class="filter-select" list="directorOptions" placeholder="Search Director...">
             <datalist id="directorOptions"></datalist>
@@ -68,6 +219,22 @@
             <button id="resetFiltersBtn" class="btn-primary" style="background: var(--border);">Reset</button>
         </div>
 
+        <!-- Filtri Explore (TMDB) -->
+        <div id="exploreFilters" class="advanced-filters" style="display:none;">
+            <select id="exploreGenre" class="filter-select"><option value="">All Genres</option></select>
+            <input type="number" id="exploreYear" class="filter-select" placeholder="Year" min="1900" max="2099">
+            <select id="exploreSort" class="filter-select">
+                <option value="popularity.desc">Popularity</option>
+                <option value="vote_average.desc">Rating</option>
+                <option value="primary_release_date.desc">Newest</option>
+                <option value="vote_count.desc">Most Votes</option>
+            </select>
+            <input type="number" id="exploreMinVotes" class="filter-select" placeholder="Min. votes" min="0" value="1000" style="width: 110px;">
+            <button id="applyExploreFilters" class="btn-primary">🔍 Search</button>
+            <button id="resetExploreFiltersBtn" class="btn-primary" style="background: var(--border);">Reset</button>
+        </div>
+
+        <!-- Decade filters -->
         <div class="decade-filters">
             <span style="color: var(--text-muted); margin-right: 10px;">📅 Decade:</span>
             <button class="decade-btn" data-decade="">All</button>
@@ -79,11 +246,13 @@
             <button class="decade-btn" data-decade="2020">2020s</button>
         </div>
 
+        <!-- Sezione consigliata -->
         <div id="recommendationsSection" class="recommendations-container" style="display: none;">
             <h3 class="recommend-title">🎬 YOU MIGHT ALSO LIKE</h3>
             <div id="recommendGrid" class="movie-grid mini-grid"></div>
         </div>
 
+        <!-- Galleria e Spotlight -->
         <main id="app">
             <section id="spotlightHeader" class="spotlight-section" style="display:none;">
                 <div id="spotlightBackdrop" class="spotlight-bg"></div>
@@ -96,82 +265,372 @@
             <div id="gallery" class="movie-grid"></div>
             <div id="sentinel" style="height: 20px;"></div>
         </main>
-
     </div>
 
-    <!-- Modale aggiunta/modifica -->
-    <div id="modal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><h2 id="modalTitle">Add to Archive</h2>
-    <form id="movieForm"><div class="search-container"><input type="text" id="tmdbSearch" placeholder="Search TMDB..."><div id="searchResults" class="autocomplete-dropdown"></div></div>
-    <input type="hidden" id="tmdbPoster"><input type="hidden" id="tmdbPlot"><input type="hidden" id="tmdbTitle">
-    <div class="selected-movie-preview" id="moviePreview" style="display:none;"><img id="previewPoster"><div class="preview-details"><h3 id="previewTitle"></h3><p id="previewPlot"></p></div></div>
-    <div class="form-row"><label><input type="checkbox" id="isWatchlist"> Add to Watchlist</label></div>
-    <div id="reviewFields"><div class="form-row"><input type="number" id="rating" placeholder="Rating (0-10)" step="0.5"><input type="date" id="watchDate"></div>
-    <div class="seba-awards-wrapper">
-        <p>The Seba Awards:</p>
-        <div id="awardsContainer">
-            <label class="award-label"><input type="checkbox" class="seba-award" value="🎥 Cinematography">🎥 Cinematography</label>
-            <label class="award-label"><input type="checkbox" class="seba-award" value="📝 Screenplay">📝 Screenplay</label>
-            <label class="award-label"><input type="checkbox" class="seba-award" value="🎭 Performance">🎭 Performance</label>
-            <label class="award-label"><input type="checkbox" class="seba-award" value="🎵 Score">🎵 Score</label>
-            <label class="award-label"><input type="checkbox" class="seba-award" value="🤯 Mind-Bending">🤯 Mind-Bending</label>
-            <label class="award-label"><input type="checkbox" class="seba-award" value="🥹 Emotional">🥹 Emotional</label>
+    <!-- ==================== MODALE AGGIUNTA / MODIFICA ==================== -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="modalTitle">Add to Archive</h2>
+            <form id="movieForm">
+                <div class="search-container">
+                    <input type="text" id="tmdbSearch" placeholder="Search TMDB..." class="modern-input">
+                    <div id="searchResults" class="autocomplete-dropdown"></div>
+                </div>
+                <input type="hidden" id="tmdbPoster">
+                <input type="hidden" id="tmdbPlot">
+                <input type="hidden" id="tmdbTitle">
+                <div class="selected-movie-preview" id="moviePreview" style="display:none;">
+                    <img id="previewPoster">
+                    <div class="preview-details">
+                        <h3 id="previewTitle"></h3>
+                        <p id="previewPlot"></p>
+                    </div>
+                </div>
+                <div class="toggle-row">
+                    <span class="toggle-label">Watchlist</span>
+                    <label class="switch">
+                        <input type="checkbox" id="isWatchlist">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div id="reviewSection">
+                    <div class="modern-row">
+                        <input type="number" id="rating" placeholder="Rating (0-10)" step="0.5" class="modern-input small-input">
+                        <input type="date" id="watchDate" class="modern-input small-input">
+                    </div>
+                    <div class="file-upload-wrapper" style="margin-top: 1.5rem;">
+                        <label class="modern-label">📄 Review File</label>
+                        <input type="file" id="reviewFile" accept=".pdf, .html" class="modern-file-input">
+                    </div>
+                    <div class="awards-section">
+                        <p class="modern-label">🏆 Seba Awards</p>
+                        <div id="awardsContainer" class="awards-chips">
+                            <label class="award-chip"><input type="checkbox" class="seba-award" value="🎥 Cinematography">🎥 Cinematography</label>
+                            <label class="award-chip"><input type="checkbox" class="seba-award" value="📝 Screenplay">📝 Screenplay</label>
+                            <label class="award-chip"><input type="checkbox" class="seba-award" value="🎭 Performance">🎭 Performance</label>
+                            <label class="award-chip"><input type="checkbox" class="seba-award" value="🎵 Score">🎵 Score</label>
+                            <label class="award-chip"><input type="checkbox" class="seba-award" value="🤯 Mind-Bending">🤯 Mind-Bending</label>
+                            <label class="award-chip"><input type="checkbox" class="seba-award" value="🥹 Emotional">🥹 Emotional</label>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn-save">💾 Save Entry</button>
+            </form>
         </div>
     </div>
-    <div class="file-upload-wrapper"><label>Review File:</label><input type="file" id="reviewFile" accept=".pdf, .html"></div></div>
-    <button type="submit" class="btn-save">Save Entry</button></form></div></div>
 
-    <!-- Modale recensione -->
-    <div id="reviewModal" class="modal"><div id="dynamicBackdrop" class="review-backdrop"></div><div class="modal-content review-content"><span class="close-review">&times;</span>
-    <div class="review-header"><h2 id="viewTitle"></h2><div id="viewRating" class="rating-badge"></div></div>
-    <div id="viewMetadata" class="movie-metadata"></div><p id="viewPlot" class="plot-text"></p><div id="viewAwards" class="card-awards"></div>
-    <div class="review-actions"><button id="editBtn" class="btn-primary">Edit</button><button id="deleteBtn" class="btn-primary">Delete</button><button id="trailerBtn" class="btn-primary" style="background:#2c3e66;">🎬 Trailer</button></div>
-    <hr><div id="reviewContainer" class="document-container"></div>
-    <div id="similarMoviesContainer" style="margin-top: 20px;"><h4>🎞️ Similar Films</h4><div id="similarGrid" class="movie-grid mini-grid"></div></div>
-    </div></div>
-
-    <!-- Modale statistiche (Vault) -->
-    <div id="statsModal" class="modal"><div class="modal-content review-content" style="max-width: 1000px;"><span class="close-stats">&times;</span><h2 style="text-align:center;">Cinema Stats Vault</h2>
-    <div class="stats-grid"><div class="stat-card"><h3 id="statTotalMovies">0</h3><p>Watched</p></div><div class="stat-card"><h3 id="statTotalHours">0h</h3><p>Total Time</p></div><div class="stat-card"><h3 id="statAvgRating">0.0</h3><p>Mean Score</p></div><div class="stat-card"><h3 id="statMedian">0.0</h3><p>Median Score</p></div></div>
-    <div class="advanced-stats-row"><div class="stat-mini"><strong>Std Deviation:</strong> <span id="statStdDev">0.0</span></div><div class="stat-mini"><strong>Written Reviews:</strong> <span id="statReviewsCount">0</span></div></div>
-    <div style="margin:20px 0;"><canvas id="ratingChart" height="120"></canvas></div>
-    <div class="stats-directors"><h3>👑 Top Directors</h3><div id="topDirectorsList"></div></div>
-    <div class="stats-genres"><h3>⭐ Highest Rated Genres</h3><div id="topGenresList"></div></div>
-    <div class="stats-time"><h3>⏱️ Total Watch Time by Director</h3><div id="directorTimeList"></div></div>
-
-    <!-- Import CSV -->
-    <div class="importer-section">
-        <h3>Letterboxd Importer</h3>
-        <input type="file" id="csvFileInput" accept=".csv" style="display:none;">
-        <button id="importCsvBtn" class="btn-primary">Select CSV</button>
-        <div id="importProgress" style="display:none;">
-            <p id="importStatus"></p>
-            <div style="background:#000;">
-                <div id="importProgressBar" style="width:0%;height:4px;background:var(--accent);"></div>
+    <!-- ==================== MODALE RECENSIONE ==================== -->
+    <div id="reviewModal" class="modal">
+        <div id="dynamicBackdrop" class="review-backdrop"></div>
+        <div class="modal-content review-content">
+            <span class="close-review">&times;</span>
+            <div class="review-header">
+                <h2 id="viewTitle"></h2>
+                <div id="viewRating" class="rating-badge"></div>
+            </div>
+            <div id="viewMetadata" class="movie-metadata"></div>
+            <p id="viewPlot" class="plot-text"></p>
+            <div id="viewAwards" class="card-awards"></div>
+            <div id="omdbRatings"></div>
+            <div class="review-actions">
+                <button id="editBtn" type="button" class="btn-primary">Edit</button>
+                <button id="deleteBtn" type="button" class="btn-primary">Delete</button>
+                <button id="trailerBtn" type="button" class="btn-primary" style="background:#2c3e66;">🎬 Trailer</button>
+            </div>
+            <hr>
+            <div id="reviewContainer" class="document-container"></div>
+            <div id="similarMoviesContainer" style="margin-top: 20px;">
+                <h4>🎞️ Similar Films</h4>
+                <div id="similarGrid" class="movie-grid mini-grid"></div>
             </div>
         </div>
     </div>
 
-    <!-- Ripara Metadati -->
-    <div style="margin-top: 15px; text-align: center;">
-        <button id="repairMetadataBtn" class="btn-primary" style="background:#2c3e66;">🛠 Repair Movie Metadata</button>
-        <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 5px;">
-            Fills in missing director, genres, and runtime for all movies in your archive.
-        </p>
+    <!-- ==================== MODALE STATISTICHE (VAULT) ==================== -->
+    <div id="statsModal" class="modal">
+        <div class="modal-content review-content" style="max-width: 1000px;">
+            <span class="close-stats">&times;</span>
+            <h2 style="text-align:center;">Cinema Stats Vault</h2>
+            <button id="openVaultMapBtn" class="btn-primary" style="margin: 10px auto 20px; display: block; background: #2563eb;">🌍 Mappa del Vault</button>
+
+            <div id="vaultStatsContent">
+                <div class="stats-grid">
+                    <div class="stat-card"><h3 id="statTotalMovies">0</h3><p>Watched</p></div>
+                    <div class="stat-card"><h3 id="statTotalHours">0h</h3><p>Total Time</p></div>
+                    <div class="stat-card"><h3 id="statAvgRating">0.0</h3><p>Mean Score</p></div>
+                    <div class="stat-card"><h3 id="statMedian">0.0</h3><p>Median Score</p></div>
+                </div>
+                <div class="advanced-stats-row">
+                    <div class="stat-mini"><strong>Std Deviation:</strong> <span id="statStdDev">0.0</span></div>
+                    <div class="stat-mini"><strong>Written Reviews:</strong> <span id="statReviewsCount">0</span></div>
+                </div>
+                <div style="margin:20px 0;"><canvas id="ratingChart" height="120"></canvas></div>
+                <div class="stats-directors">
+                    <h3>👑 Top Directors</h3>
+                    <div id="topDirectorsList"></div>
+                    <button id="openDirectorsRankingBtn" class="btn-primary" style="margin-top: 10px; background: #1e293b;">📋 Vedi classifica completa (Top 25)</button>
+                </div>
+                <div class="stats-actors" style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 16px; margin-top: 20px;">
+                    <h3 style="margin-top: 0; font-family: 'Cinzel', serif; color: var(--accent);">🎭 Top Actors</h3>
+                    <div id="topActorsList"></div>
+                    <button id="openActorsRankingBtn" class="btn-primary" style="margin-top: 10px; background: #1e293b;">📋 Vedi classifica completa (Top 25)</button>
+                </div>
+                <div class="stats-genres">
+                    <h3>⭐ Highest Rated Genres</h3>
+                    <div id="topGenresList"></div>
+                    <button id="openGenreChartBtn" class="btn-primary" style="margin-top: 10px; background: #1e293b;">📊 Media voti per genere</button>
+                </div>
+                <div class="stats-time">
+                    <h3>⏱️ Total Watch Time by Director</h3>
+                    <div id="directorTimeList"></div>
+                </div>
+                <div class="stats-elo">
+                    <h3>🏆 Elo Ranking</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 10px;">Sistema di confronto A/B per determinare i tuoi film preferiti.</p>
+                    <button id="openEloRankingBtn" class="btn-primary" style="background: #1e293b;">📋 Vedi classifica completa</button>
+                </div>
+            </div>
+
+            <div id="vaultMapView" class="vault-map-view" style="display:none;">
+                <div class="vault-map-header">
+                    <button id="closeVaultMapBtn" class="btn-primary" style="background: #1e293b; margin-bottom: 12px;">← Torna al Vault</button>
+                    <div id="vaultMapSummary" class="vault-map-summary">Caricamento mappa…</div>
+                </div>
+                <div id="vaultMapContainer"></div>
+                <div id="vaultMapCountryInfo" class="vault-map-country-info">Clicca su un paese per vedere i film della tua Vault.</div>
+            </div>
+        </div>
     </div>
 
-    <!-- Reset Archive -->
-    <div style="margin-top: 30px; text-align: center; border-top: 1px solid var(--border); padding-top: 20px;">
-        <button id="resetVaultBtn" class="btn-primary" style="background: #b91c1c;">🗑 Reset Entire Archive</button>
-        <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Permanently deletes all movies in your archive and watchlist.</p>
+    <!-- ==================== MODALE TRAILER ==================== -->
+    <div id="trailerModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close-trailer">&times;</span>
+            <h3>🎥 Trailer</h3>
+            <iframe id="trailerIframe" width="100%" height="400" frameborder="0" allowfullscreen></iframe>
+        </div>
     </div>
 
-    </div></div>
+    <!-- ==================== MODALE DETTAGLIO FILM TMDB ==================== -->
+    <div id="exploreMovieModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <span class="close-explore-movie">&times;</span>
+            <div id="exploreMovieContent"></div>
+        </div>
+    </div>
 
-    <!-- Modale trailer -->
-    <div id="trailerModal" class="modal"><div class="modal-content" style="max-width: 800px;"><span class="close-trailer">&times;</span><h3>🎥 Trailer</h3><iframe id="trailerIframe" width="100%" height="400" frameborder="0" allowfullscreen></iframe></div></div>
+    <!-- ==================== MODALE DETTAGLI COMPLETI ==================== -->
+    <div id="movieDetailsModal" class="modal">
+        <div class="modal-content" style="max-width: 750px;">
+            <span class="close-movie-details">&times;</span>
+            <div id="movieDetailsContent"></div>
+        </div>
+    </div>
 
+    <!-- ==================== MODALE CLASSIFICA REGISTI ==================== -->
+    <div id="directorsRankingModal" class="modal">
+        <div class="modal-content ranking-content">
+            <span class="close-ranking">&times;</span>
+            <h2 style="font-family: 'Cinzel', serif; color: var(--accent);">🏆 Top 25 Directors by Rating</h2>
+            <div id="rankingContainer" class="ranking-grid"></div>
+        </div>
+    </div>
+
+    <!-- ==================== MODALE CLASSIFICA ATTORI ==================== -->
+    <div id="actorsRankingModal" class="modal">
+        <div class="modal-content ranking-content" style="max-width: 900px;">
+            <span class="close-actors-ranking">&times;</span>
+            <h2 style="font-family: 'Cinzel', serif; color: var(--accent);">🎭 Top 25 Actors by Appearances</h2>
+            <div id="actorsRankingContainer" class="ranking-grid"></div>
+        </div>
+    </div>
+
+    <!-- ==================== MODALE MEDIA VOTI PER GENERE ==================== -->
+    <div id="genreChartModal" class="modal">
+        <div class="modal-content ranking-content" style="max-width: 800px;">
+            <span class="close-genre-chart">&times;</span>
+            <h2 style="font-family: 'Cinzel', serif; color: var(--accent);">📊 Media voti per genere</h2>
+            <div style="margin: 20px 0;"><canvas id="genreRatingChart" height="100"></canvas></div>
+            <div id="genreChartList" class="ranking-grid"></div>
+        </div>
+    </div>
+
+    <!-- ==================== MODALE CLASSIFICA ELO ==================== -->
+    <div id="eloRankingModal" class="modal">
+        <div class="modal-content ranking-content" style="max-width: 900px;">
+            <span class="close-elo-ranking">&times;</span>
+            <h2 style="font-family: 'Cinzel', serif; color: var(--accent);">🏆 Elo Ranking</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">I tuoi film ordinati per punteggio Elo (più alto = migliore). Clicca su un film per vedere i dettagli.</p>
+            <div class="elo-controls" style="margin-bottom: 1rem; display:flex; flex-wrap:wrap; gap:0.75rem; align-items:center; justify-content:space-between;">
+                <div style="flex:1; min-width:220px;">
+                    <input id="eloSearchInput" type="search" placeholder="Cerca titolo..." aria-label="Cerca film Elo" class="elo-search-bar">
+                    <p id="eloSearchInfo" style="margin:0.35rem 0 0; font-size:0.8rem; color:var(--text-muted);"></p>
+                </div>
+                <div class="elo-range-controls" role="region" aria-label="Filtri classifica Elo">
+                    <label class="elo-range-label">Da posizione
+                        <input id="eloStartIndex" type="number" min="1" placeholder="1" class="elo-range-input" aria-label="Inizio range Elo">
+                    </label>
+                    <label class="elo-range-label">Badge
+                        <select id="eloBadgeFilter" class="elo-range-input" aria-label="Filtra per badge Elo">
+                            <option value="all">Tutti</option>
+                            <option value="GOATS">GOATS</option>
+                            <option value="Absolute Masterpiece">Absolute Masterpiece</option>
+                            <option value="The Very Top">The Very Top</option>
+                            <option value="Gas">Gas</option>
+                            <option value="Solid">Solid</option>
+                            <option value="Alright">Alright</option>
+                            <option value="NCSP">NCSP</option>
+                        </select>
+                    </label>
+                    <button type="button" id="eloApplyFilter" class="elo-jump-link">Applica</button>
+                </div>
+            </div>
+            <div id="eloRankingContainer" class="ranking-grid" style="max-height: 500px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <!-- ==================== MODALE PROFILO ==================== -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-profile">&times;</span>
+            <h2 style="font-family:'Cinzel',serif; color:var(--accent); margin-bottom:1.5rem;">👤 Profile</h2>
+            <div id="profileDynamicContent">
+                <div id="profileMainView">
+                    <div class="detail-section" style="margin-bottom:1.5rem;">
+                        <h4>📷 Avatar & Name</h4>
+                        <div style="display:flex; align-items:center; gap:16px;">
+                            <label for="profilePicInput" style="cursor:pointer; position:relative;">
+                                <img id="profilePicPreview" src="" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--accent); background:#1e293b;">
+                                <span style="position:absolute; bottom:0; right:0; background:var(--accent); color:white; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:0.7rem;">✎</span>
+                            </label>
+                            <input type="file" id="profilePicInput" accept="image/*" style="display:none;">
+                            <div style="flex:1;">
+                                <p id="profileNickname" style="font-weight:700; font-size:1.1rem; margin:0 0 4px 0;"></p>
+                                <p id="profileEmail" style="color:var(--text-muted); font-size:0.85rem; margin:0 0 6px 0;"></p>
+                                <button class="btn-primary" id="editNicknameBtn" style="padding:0.4rem 1rem; font-size:0.85rem;">✏️ Edit Nickname</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="detail-section" style="margin-bottom:1.5rem;">
+                        <h4>⚙️ Quick Actions</h4>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <button class="profile-btn" id="themeToggleProfile">🌙 Theme</button>
+                            <button class="profile-btn" id="openImportExportBtn">📁 Import / Export</button>
+                            <button class="profile-btn" id="clearCacheBtn">🗑️ Clear Cache</button>
+                            <button class="profile-btn" id="repairFromProfileBtn">🛠️ Repair Metadata</button>
+                        </div>
+                    </div>
+                    <div class="detail-section" style="margin-bottom:1.5rem;">
+                        <h4>🔐 Account</h4>
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <button class="profile-btn" id="logoutFromProfileBtn">🚪 Logout</button>
+                            <button class="profile-btn danger" id="deleteArchiveBtn">⚠️ Delete Entire Archive</button>
+                        </div>
+                    </div>
+                    <p style="margin-top:0.5rem; font-size:0.75rem; color:var(--text-muted); text-align:center;">Seba's Reviews v2.0 · Firebase + TMDB + OMDb</p>
+                </div>
+            </div>
+            <input type="file" id="importFileInput" accept=".json" style="display:none;">
+        </div>
+    </div>
+
+    <!-- ==================== MODALE IMPORT / EXPORT ==================== -->
+    <div id="importExportModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close-import-export">&times;</span>
+            <h2 style="font-family:'Cinzel',serif; color:var(--accent);">📁 Import & Export</h2>
+            <div class="detail-section" style="margin-bottom:1.5rem;">
+                <h4>📤 Export Your Archive</h4>
+                <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:10px;">Download your entire movie collection as a JSON file. Use this to create a backup or transfer your data to another device.</p>
+                <button class="btn-primary" id="exportDataBtn2" style="width:100%;">📤 Export as JSON</button>
+            </div>
+            <div class="detail-section" style="margin-bottom:1.5rem;">
+                <h4>📥 Import a Backup</h4>
+                <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:10px;">Restore a previously exported JSON file. ⚠️ This will <strong>replace</strong> all your current data.</p>
+                <button class="btn-primary" id="importDataBtn2" style="width:100%;">📥 Import JSON Backup</button>
+            </div>
+            <div class="detail-section" style="margin-bottom:1.5rem;">
+                <h4>📋 Import from Letterboxd</h4>
+                <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:10px;">Import your ratings from a Letterboxd CSV export file. Ratings are converted from 0-5 scale to 0-10 scale.</p>
+                <button class="btn-primary" id="importCsvBtn2" style="width:100%;">📋 Import Letterboxd CSV</button>
+            </div>
+            <p style="font-size:0.75rem; color:var(--text-muted); text-align:center; margin-top:1rem;">All imports will overwrite existing data. Make a backup first!</p>
+            <input type="file" id="importFileInput2" accept=".json" style="display:none;">
+            <input type="file" id="csvFileInput2" accept=".csv" style="display:none;">
+        </div>
+    </div>
+
+    <!-- ==================== MODALE ELO RANKING BATTLE ==================== -->
+    <div id="battleModal" class="modal" style="display: none;">
+        <div class="modal-content battle-content">
+            <span class="close-battle" id="battleClose">&times;</span>
+            <h2 style="text-align: center; font-family: 'Cinzel', serif; color: var(--accent); margin-bottom: 1.5rem;">⚔️ MOVIE BATTLE</h2>
+            <p style="text-align: center; color: var(--text-muted); margin-bottom: 2rem;">Scegli il film che preferisci tra questi due</p>
+            
+            <div class="battle-container">
+                <!-- Film A -->
+                <div class="battle-side">
+                    <div id="battleMovieA" class="battle-movie">
+                        <div style="text-align: center; color: var(--text-muted);">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="battle-divider">
+                    <span class="battle-divider-text">VS</span>
+                </div>
+
+                <!-- Film B -->
+                <div class="battle-side">
+                    <div id="battleMovieB" class="battle-movie">
+                        <div style="text-align: center; color: var(--text-muted);">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Battle Result Popup -->
+    <div id="battleResult" class="battle-result-container" style="display: none;"></div>
+
+    <!-- ==================== CHAT AI ==================== -->
+    <div id="ai-chatbot" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; font-family: sans-serif;">
+        <div id="chat-window" style="display: none; width: 320px; height: 450px; background: #1a1d23; border: 2px solid #3498db; border-radius: 15px; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+            <div style="padding: 15px; background: #3498db; color: white; border-radius: 12px 12px 0 0; font-weight: bold;">🎬 Sebas Movie AI</div>
+            <div id="chat-messages" style="flex: 1; overflow-y: auto; padding: 15px; font-size: 14px; color: #ecf0f1; display: flex; flex-direction: column; gap: 10px;"></div>
+            <div style="padding: 10px; border-top: 1px solid #333;">
+                <input type="text" id="chat-input" placeholder="Scrivi qui..." style="width: 100%; border: none; padding: 12px; border-radius: 8px; background: #0c0e12; color: white; outline: none;">
+            </div>
+        </div>
+        <button id="toggle-chat" style="background: #3498db; color: white; border: none; border-radius: 50%; width: 60px; height: 60px; cursor: pointer; font-size: 28px; margin-top: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">💬</button>
+    </div>
+
+    <!-- ==================== SCRIPTS ==================== -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script type="module" src="app.js"></script>
-
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                .then(reg => {
+                    console.log('Service Worker registrato');
+                    if (reg.waiting) {
+                        reg.waiting.postMessage('SKIP_WAITING');
+                        window.location.reload();
+                    }
+                    reg.addEventListener('updatefound', () => {
+                        const installing = reg.installing;
+                        installing.addEventListener('statechange', () => {
+                            if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                                installing.postMessage('SKIP_WAITING');
+                                window.location.reload();
+                            }
+                        });
+                    });
+                })
+                .catch(err => console.error('Errore SW during registration:', err));
+        }
+    </script>
 </body>
 </html>
