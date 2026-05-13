@@ -305,7 +305,7 @@ onAuthStateChanged(auth, async (user) => {
         currentUser = user;
         loginBtn.style.display = 'none';
         if (logoutBtn) logoutBtn.style.display = 'inline-block';
-        appContent.style.display = 'block';
+        appContent.hidden = false;
         
         // Initialize global modal system (only once per auth session)
         initModalSystem();
@@ -379,7 +379,7 @@ onAuthStateChanged(auth, async (user) => {
         invalidateMoviesCache();
         loginBtn.style.display = 'inline-block';
         if (logoutBtn) logoutBtn.style.display = 'none';
-        appContent.style.display = 'none';
+        appContent.hidden = true;
         if (profileBtn) profileBtn.style.display = 'none';
 
         // Reset all global state
@@ -1605,32 +1605,38 @@ const chatInput = document.getElementById('chat-input');
 const chatMessages = document.getElementById('chat-messages');
 
 chatBtn.onclick = () => {
-    if (chatWindow.style.display === 'none' || chatWindow.style.display === '') {
-        chatWindow.style.display = 'flex';
+    if (chatWindow.hidden) {
+        chatWindow.hidden = false;
         // Mostra il benvenuto solo se la chat è vuota
         if (chatMessages.children.length === 0) {
-            chatMessages.innerHTML = `<div style="align-self: flex-start; background: #2c3e50; padding: 10px; border-radius: 12px; max-width: 85%;">
-                <b>AI:</b> Ciao! Sono la tua AI di Sebas-Reviews. Chiedimi pure consigli sui film, suggerimenti su cos'altro guardare o curiosità sui generi e registi che hai salvato 🎬
-            </div>`;
+            const welcome = document.createElement('div');
+            welcome.className = 'chat-bubble chat-bubble-ai';
+            welcome.innerHTML = `<b>AI:</b> Ciao! Sono la tua AI di Sebas-Reviews. Chiedimi pure consigli sui film, suggerimenti su cos'altro guardare o curiosità sui generi e registi che hai salvato 🎬`;
+            chatMessages.appendChild(welcome);
         }
     } else {
-        chatWindow.style.display = 'none';
+        chatWindow.hidden = true;
     }
 };
+
+function appendChatBubble(role, text) {
+    const bubble = document.createElement('div');
+    bubble.className = role === 'user' ? 'chat-bubble chat-bubble-user' : 'chat-bubble chat-bubble-ai';
+    const label = document.createElement('b');
+    label.textContent = role === 'user' ? 'Tu:' : 'AI:';
+    bubble.appendChild(label);
+    bubble.appendChild(document.createTextNode(' ' + text));
+    chatMessages.appendChild(bubble);
+}
 
 chatInput.addEventListener('keypress', async (e) => {
     if (e.key === 'Enter' && chatInput.value.trim() !== "") {
         const text = chatInput.value;
         chatInput.value = "";
 
-        // Mostra messaggio utente
-        chatMessages.innerHTML += `<div style="align-self: flex-end; background: #3498db; padding: 8px; border-radius: 8px; max-width: 80%;"><b>Tu:</b> ${text}</div>`;
-        
-        // Chiedi all'AI
+        appendChatBubble('user', text);
         const aiText = await getAIResponse(text);
-        
-        // Mostra risposta AI
-        chatMessages.innerHTML += `<div style="align-self: flex-start; background: #2c3e50; padding: 8px; border-radius: 8px; max-width: 80%;"><b>AI:</b> ${aiText}</div>`;
+        appendChatBubble('ai', aiText);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 });

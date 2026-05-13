@@ -78,6 +78,13 @@ header {
     z-index: 1100;
 }
 
+header .profile-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 0.5rem 1rem;
+    font-size: 1.2rem;
+}
+
 /* --- NAVBAR --- */
 .navbar {
     display: flex;
@@ -856,11 +863,11 @@ body.theme-light {
 }
 
 body.theme-light header {
-    background: #d0c5b2 !important;
+    background: #d0c5b2;
 }
 
 body.theme-light .navbar {
-    background: #d0c5b2 !important;
+    background: #d0c5b2;
     backdrop-filter: none;
 }
 
@@ -1742,181 +1749,181 @@ input:checked + .slider:before {
 /* Responsive Battle Modal */
 @media (max-width: 768px) {
     .battle-content {
-        padding: 8px !important;
-        height: 100vh !important;
-        max-height: 90vh !important;
+        padding: 8px;
+        height: 100vh;
+        max-height: 90vh;
     }
 
     #battleModal .modal-content {
-        max-height: 90vh !important;
-        height: 100% !important;
-        padding: 8px !important;
+        max-height: 90vh;
+        height: 100%;
+        padding: 8px;
     }
 
     #battleModal .modal-content > h2 {
-        font-size: 1rem !important;
-        margin-bottom: 0.2rem !important;
-        padding: 0.2rem !important;
-        line-height: 1.1 !important;
+        font-size: 1rem;
+        margin-bottom: 0.2rem;
+        padding: 0.2rem;
+        line-height: 1.1;
     }
 
     #battleModal .modal-content > p {
-        display: none !important;
+        display: none;
     }
 
     .battle-container {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 12px !important;
-        padding: 0 !important;
-        margin-bottom: 0 !important;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 0;
+        margin-bottom: 0;
     }
 
     .battle-side {
-        width: 94% !important;
-        display: flex !important;
-        flex-direction: column !important;
-        flex-grow: 0 !important;
-        min-width: 0 !important;
-        min-height: fit-content !important;
-        gap: 0 !important;
-        margin: 0 auto !important;
-        justify-content: flex-start !important;
+        width: 94%;
+        display: flex;
+        flex-direction: column;
+        flex-grow: 0;
+        min-width: 0;
+        min-height: fit-content;
+        gap: 0;
+        margin: 0 auto;
+        justify-content: flex-start;
     }
 
     .battle-movie {
-        width: 100% !important;
-        display: flex !important;
-        flex-direction: column !important;
-        height: auto !important;
-        min-height: fit-content !important;
-        min-width: 0 !important;
-        border: none !important;
-        overflow: visible !important;
-        justify-content: flex-start !important;
-        position: relative !important;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        min-height: fit-content;
+        min-width: 0;
+        border: none;
+        overflow: visible;
+        justify-content: flex-start;
+        position: relative;
     }
 
     .battle-movie-container {
-        width: 100% !important;
-        height: 25vh !important;
-        min-height: 25vh !important;
-        max-height: 25vh !important;
-        border: none !important;
-        overflow: visible !important;
-        border-radius: 8px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        position: relative !important;
-        flex-shrink: 0 !important;
+        width: 100%;
+        height: 25vh;
+        min-height: 25vh;
+        max-height: 25vh;
+        border: none;
+        overflow: visible;
+        border-radius: 8px;
+        margin: 0;
+        padding: 0;
+        position: relative;
+        flex-shrink: 0;
     }
 
     .battle-movie img.battle-poster {
-        width: 100% !important;
-        height: 100% !important;
-        object-fit: cover !important;
-        object-position: center 20% !important;
-        display: block !important;
-        border-radius: 8px !important;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 20%;
+        display: block;
+        border-radius: 8px;
     }
 
     .battle-info {
-        display: flex !important;
-        flex-direction: column !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        height: auto !important;
-        padding: 8px 4px 0 4px !important;
-        align-items: center !important;
-        z-index: 10 !important;
-        flex-shrink: 0 !important;
-        color: var(--text-main) !important;
+        display: flex;
+        flex-direction: column;
+        visibility: visible;
+        opacity: 1;
+        height: auto;
+        padding: 8px 4px 0 4px;
+        align-items: center;
+        z-index: 10;
+        flex-shrink: 0;
+        color: var(--text-main);
     }
 
     .battle-info h3 {
-        font-size: 0.85rem !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        text-align: center !important;
-        margin: 0 0 4px 0 !important;
-        line-height: 1.1 !important;
-        width: 100% !important;
-        color: var(--text-main) !important;
-        display: none !important;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: center;
+        margin: 0 0 4px 0;
+        line-height: 1.1;
+        width: 100%;
+        color: var(--text-main);
+        display: none;
     }
 
     .battle-info-footer {
-        display: flex !important;
-        flex-direction: row !important;
-        justify-content: space-between !important;
-        width: 100% !important;
-        padding: 4px 12px !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        z-index: 50 !important;
-        font-size: 0.9rem !important;
-        background: transparent !important;
-        align-items: center !important;
-        gap: 0px !important;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        width: 100%;
+        padding: 4px 12px;
+        visibility: visible;
+        opacity: 1;
+        z-index: 50;
+        font-size: 0.9rem;
+        background: transparent;
+        align-items: center;
+        gap: 0px;
     }
 
     .battle-rating {
-        font-size: 0.8rem !important;
-        margin: 0 !important;
-        flex-shrink: 0 !important;
-        text-align: center !important;
-        color: white !important;
+        font-size: 0.8rem;
+        margin: 0;
+        flex-shrink: 0;
+        text-align: center;
+        color: white;
     }
 
     .battle-elo {
-        font-size: 0.75rem !important;
-        margin: 0 !important;
-        flex-shrink: 0 !important;
-        text-align: center !important;
-        color: white !important;
+        font-size: 0.75rem;
+        margin: 0;
+        flex-shrink: 0;
+        text-align: center;
+        color: white;
     }
 
     .battle-divider {
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        flex-shrink: 0 !important;
-        width: auto !important;
-        height: auto !important;
-        margin: 0 !important;
-        padding: 0 !important;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-shrink: 0;
+        width: auto;
+        height: auto;
+        margin: 0;
+        padding: 0;
     }
 
     .battle-divider::before,
     .battle-divider::after {
-        display: none !important;
-        width: 0 !important;
-        height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
+        display: none;
+        width: 0;
+        height: 0;
+        margin: 0;
+        padding: 0;
     }
 
     .battle-divider-text {
-        font-size: 1.2rem !important;
-        font-weight: bold !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        align-self: center !important;
-        flex-shrink: 0 !important;
-        color: var(--accent) !important;
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin: 0;
+        padding: 0;
+        align-self: center;
+        flex-shrink: 0;
+        color: var(--accent);
     }
 
     #battleModal .modal-content {
-        max-height: 90vh !important;
-        padding: 8px !important;
-        height: 100% !important;
+        max-height: 90vh;
+        padding: 8px;
+        height: 100%;
     }
 
     #battleModal {
-        padding: 4px !important;
+        padding: 4px;
     }
 
     /* Floating animations for Elo changes (+/-) */
@@ -1924,10 +1931,10 @@ input:checked + .slider:before {
     .score-popup,
     .floating-points,
     .battle-points-animation {
-        z-index: 9999 !important;
-        position: absolute !important;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8) !important;
-        pointer-events: none !important;
+        z-index: 9999;
+        position: absolute;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        pointer-events: none;
     }
 
     /* Ensure battle result popups are visible */
@@ -2312,31 +2319,53 @@ hr {
 }
 
 /* =========================================
-   AI CHAT – REDESIGN COMPLETO
+   AI CHAT
    ========================================= */
-#chat-window {
-    background: rgba(18, 20, 26, 0.95) !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    border-radius: 20px !important;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7) !important;
-    overflow: hidden !important;
+#ai-chatbot {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    font-family: 'Inter', sans-serif;
 }
 
-#chat-window > div:first-child {
-    background: linear-gradient(135deg, #1e3a5f, #2c3e50) !important;
-    font-family: 'Inter', sans-serif !important;
-    font-size: 0.95rem !important;
-    letter-spacing: 0.5px !important;
-    padding: 14px 18px !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+#chat-window {
+    display: flex;
+    flex-direction: column;
+    width: 320px;
+    height: 450px;
+    background: rgba(18, 20, 26, 0.95);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    overflow: hidden;
+}
+
+#chat-window[hidden] {
+    display: none;
+}
+
+.chat-header {
+    background: linear-gradient(135deg, #1e3a5f, #2c3e50);
+    color: white;
+    font-weight: bold;
+    font-size: 0.95rem;
+    letter-spacing: 0.5px;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 #chat-messages {
-    padding: 16px !important;
-    gap: 12px !important;
-    background: rgba(12, 14, 18, 0.6) !important;
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(12, 14, 18, 0.6);
+    color: #ecf0f1;
 }
 
 #chat-messages::-webkit-scrollbar {
@@ -2350,68 +2379,82 @@ hr {
     border-radius: 10px;
 }
 
-#chat-messages > div[style*="align-self: flex-start"],
-#chat-messages > div:not([style*="align-self: flex-end"]) {
-    background: rgba(30, 40, 55, 0.9) !important;
-    border: 1px solid rgba(255, 255, 255, 0.06) !important;
-    border-radius: 16px 16px 16px 4px !important;
-    padding: 10px 14px !important;
-    max-width: 82% !important;
-    font-size: 0.85rem !important;
-    line-height: 1.5 !important;
-    color: #e2e8f0 !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
-    animation: bubbleIn 0.25s ease-out !important;
+.chat-bubble {
+    padding: 10px 14px;
+    max-width: 82%;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    animation: bubbleIn 0.25s ease-out;
 }
 
-#chat-messages > div[style*="align-self: flex-end"] {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-    border: none !important;
-    border-radius: 16px 16px 4px 16px !important;
-    padding: 10px 14px !important;
-    max-width: 82% !important;
-    font-size: 0.85rem !important;
-    line-height: 1.5 !important;
-    color: #ffffff !important;
-    box-shadow: 0 2px 12px rgba(37, 99, 235, 0.3) !important;
-    animation: bubbleIn 0.25s ease-out !important;
+.chat-bubble-ai {
+    align-self: flex-start;
+    background: rgba(30, 40, 55, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px 16px 16px 4px;
+    color: #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-#chat-messages b {
-    font-size: 0.75rem !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.8px !important;
-    opacity: 0.7 !important;
-    display: block !important;
-    margin-bottom: 4px !important;
+.chat-bubble-user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border-radius: 16px 16px 4px 16px;
+    color: #ffffff;
+    box-shadow: 0 2px 12px rgba(37, 99, 235, 0.3);
+}
+
+.chat-bubble b {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    opacity: 0.7;
+    margin-bottom: 4px;
+}
+
+.chat-input-wrapper {
+    padding: 10px 14px;
+    background: rgba(12, 14, 18, 0.8);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 #chat-input {
-    background: rgba(255, 255, 255, 0.05) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 25px !important;
-    padding: 12px 18px !important;
-    font-size: 0.9rem !important;
-    color: #e2e8f0 !important;
-    transition: all 0.2s ease !important;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 25px;
+    padding: 12px 18px;
+    font-size: 0.9rem;
+    color: #e2e8f0;
+    outline: none;
+    transition: all 0.2s ease;
 }
 #chat-input:focus {
-    outline: none !important;
-    border-color: #3498db !important;
-    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2) !important;
-    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+    background: rgba(255, 255, 255, 0.08);
 }
 #chat-input::placeholder {
-    color: rgba(255, 255, 255, 0.35) !important;
+    color: rgba(255, 255, 255, 0.35);
 }
 
 #toggle-chat {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    margin-top: 10px;
+    width: 60px;
+    height: 60px;
+    border: none;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: white;
+    font-size: 28px;
+    cursor: pointer;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 #toggle-chat:hover {
-    transform: scale(1.08) !important;
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4) !important;
+    transform: scale(1.08);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
 }
 
 @keyframes bubbleIn {
@@ -2423,12 +2466,6 @@ hr {
         opacity: 1;
         transform: translateY(0) scale(1);
     }
-}
-
-#chat-window > div:last-child {
-    background: rgba(12, 14, 18, 0.8) !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-    padding: 10px 14px !important;
 }
 
 /* Modale profilo */
@@ -2655,135 +2692,135 @@ hr {
 
     /* Chat sopra la barra */
     #ai-chatbot {
-        bottom: 70px !important;
-        z-index: 1600 !important;
+        bottom: 70px;
+        z-index: 1600;
     }
 
     #chat-window {
-        bottom: 70px !important;
+        bottom: 70px;
         max-height: 60vh;
         overflow-y: auto;
     }
 
     #toggle-chat {
-        z-index: 1601 !important;
+        z-index: 1601;
     }
 
     /* Miglioramenti leggibilità classifica Elo su mobile */
     .elo-movie-row {
-        padding: 1.2rem !important;
-        gap: 1.2rem !important;
+        padding: 1.2rem;
+        gap: 1.2rem;
     }
 
     .elo-movie-row.compact {
-        padding: 1rem !important;
-        gap: 1rem !important;
+        padding: 1rem;
+        gap: 1rem;
     }
 
     .elo-rank-badge {
-        min-width: 50px !important;
-        font-size: 1.2rem !important;
+        min-width: 50px;
+        font-size: 1.2rem;
     }
 
     .elo-poster {
-        width: 80px !important;
-        height: 120px !important;
+        width: 80px;
+        height: 120px;
     }
 
     .elo-movie-row.compact .elo-poster {
-        width: 60px !important;
-        height: 90px !important;
+        width: 60px;
+        height: 90px;
     }
 
     .elo-title {
-        font-size: 1.1rem !important;
-        line-height: 1.3 !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-        flex: 1 !important;
-        min-width: 0 !important;
+        font-size: 1.1rem;
+        line-height: 1.3;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+        min-width: 0;
     }
 
     .elo-movie-row.compact .elo-title {
-        font-size: 1rem !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-        flex: 1 !important;
-        min-width: 0 !important;
+        font-size: 1rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+        min-width: 0;
     }
 
     .elo-score {
-        font-size: 1rem !important;
+        font-size: 1rem;
     }
 
     .elo-movie-row.compact .elo-score {
-        font-size: 0.9rem !important;
+        font-size: 0.9rem;
     }
 
     .elo-meta-row {
-        font-size: 0.9rem !important;
-        gap: 1rem !important;
+        font-size: 0.9rem;
+        gap: 1rem;
     }
 
     .elo-tier-badge {
-        font-size: 0.8rem !important;
-        padding: 0.4rem 0.8rem !important;
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
     }
 
     .elo-controls {
-        flex-direction: column !important;
-        gap: 1rem !important;
-        align-items: stretch !important;
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
     }
 
     .elo-range-controls {
-        flex-direction: row !important;
-        justify-content: space-between !important;
-        width: 100% !important;
+        flex-direction: row;
+        justify-content: space-between;
+        width: 100%;
     }
 
     .elo-range-label {
-        font-size: 0.85rem !important;
-        gap: 0.4rem !important;
+        font-size: 0.85rem;
+        gap: 0.4rem;
     }
 
     .elo-range-input {
-        min-width: 120px !important;
-        padding: 0.7rem 1rem !important;
-        font-size: 0.9rem !important;
+        min-width: 120px;
+        padding: 0.7rem 1rem;
+        font-size: 0.9rem;
     }
 
     .elo-search-bar {
-        padding: 0.9rem 1.1rem !important;
-        font-size: 1rem !important;
+        padding: 0.9rem 1.1rem;
+        font-size: 1rem;
     }
 
     .elo-jump-link {
-        padding: 0.7rem 1.2rem !important;
-        font-size: 0.9rem !important;
-        min-width: 100px !important;
+        padding: 0.7rem 1.2rem;
+        font-size: 0.9rem;
+        min-width: 100px;
     }
 
     /* Miglioramenti modal classifica Elo su mobile */
     #eloRankingModal .modal-content {
-        padding: 1.5rem !important;
+        padding: 1.5rem;
     }
 
     #eloRankingModal h2 {
-        font-size: 1.5rem !important;
-        margin-bottom: 1rem !important;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
     }
 
     #eloRankingModal p {
-        font-size: 0.95rem !important;
-        margin-bottom: 1.5rem !important;
+        font-size: 0.95rem;
+        margin-bottom: 1.5rem;
     }
 
     #eloRankingContainer {
-        max-height: 60vh !important;
-        gap: 1rem !important;
+        max-height: 60vh;
+        gap: 1rem;
     }
 }
 
