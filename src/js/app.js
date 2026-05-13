@@ -353,6 +353,17 @@ onAuthStateChanged(auth, async (user) => {
         } catch (error) {
             console.warn('Error migrating movies to Elo:', error);
         }
+
+        // Aggiorna i contatori "Watched | To Watch" subito dopo il login.
+        // Senza questa chiamata la galleria viene popolata dall'IntersectionObserver
+        // via loadMoreMovies(), che NON tocca updateSpotlightAndCounters(): i contatori
+        // rimangono "0 | 0" finché l'utente non cambia view mode o filtro.
+        try {
+            const movies = await fetchAllMovies();
+            updateSpotlightAndCounters(movies);
+        } catch (err) {
+            console.warn('Counters initial update failed:', err);
+        }
     } else {
         // User logged out
         currentUser = null;
