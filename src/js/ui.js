@@ -678,6 +678,7 @@ document.getElementById('importDataBtn2')?.addEventListener('change', async (e) 
 
     // Read the file as text to trigger the onload function above
     reader.readAsText(file);
+    }
 });
 
 // --- DEPENDENCIES FROM OTHER MODULES ---
