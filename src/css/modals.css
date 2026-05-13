@@ -392,3 +392,59 @@ input:checked + .slider:before {
 .close-vote:hover {
     color: var(--accent);
 }
+
+/* =========================================
+   MODALE CONFERMA (in-app, sostituisce confirm() nativo)
+   ========================================= */
+.confirm-modal-content {
+    max-width: 380px;
+    text-align: center;
+    padding: 1.8rem 1.6rem;
+}
+
+.confirm-icon {
+    font-size: 2.6rem;
+    margin: 0 0 0.6rem;
+    line-height: 1;
+}
+
+.confirm-title {
+    font-family: 'Cinzel', serif;
+    margin: 0 0 0.55rem;
+    color: var(--text-main);
+    font-size: 1.25rem;
+    line-height: 1.3;
+}
+
+.confirm-message {
+    color: var(--text-muted);
+    margin: 0 0 1.5rem;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.confirm-cancel {
+    background: var(--border);
+    flex: 1;
+    max-width: 140px;
+}
+
+.confirm-ok {
+    flex: 1;
+    max-width: 140px;
+}
+
+/* Variante distruttiva: bottone primario rosso, icona/titolo accentuati. */
+.confirm-modal-content.danger .confirm-icon { color: #ff6b6b; }
+.confirm-modal-content.danger .confirm-ok {
+    background: #c4302b;
+}
+.confirm-modal-content.danger .confirm-ok:hover {
+    background: #e14a4a;
+}

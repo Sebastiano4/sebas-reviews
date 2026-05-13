@@ -685,7 +685,7 @@ document.getElementById('importDataBtn2')?.addEventListener('change', async (e) 
 // Queste funzioni e oggetti vengono "iniettati" da app.js per far funzionare i bottoni.
 
 // Variabili globali che verranno riempite dalla funzione setUIDependencies
-let showToast; 
+// (showToast NON è qui: è importato staticamente da utils.js in cima al file)
 let getCurrentUser, getCurrentMovieId, setCurrentMovieId, getCurrentSelectedMovieExtras, setCurrentSelectedMovieExtras;
 let toBase64, searchMoviesWithYear, getMovieDetails, getMovieCredits, getMovieVideos, getFirstMovieByTitleYear;
 let signOut, collection, getDocs, deleteDoc, updateDoc, addDoc, doc, getDoc, setDoc, onSnapshot;
@@ -693,7 +693,6 @@ let fetchAllMovies, renderGallery;
 
 export function setUIDependencies(deps) {
     ({
-        showToast,
         toBase64,
         searchMoviesWithYear,
         getMovieDetails,

@@ -33,20 +33,44 @@ export function cleanupStats() {
     }
 }
 
-let _vaultOriginalMarkup = null;
+// Lo skeleton viene mostrato *sopra* il markup originale (children nascosti con
+// display:none) invece di sostituire innerHTML. Riassegnare innerHTML ricrea i
+// nodi figli e fa perdere i listener registrati da ui.js a module-load (es. i
+// bottoni openDirectorsRankingBtn / openActorsRankingBtn / openGenreChartBtn /
+// openEloRankingBtn / openVaultMapBtn).
+let _skeletonNode = null;
+const _hiddenChildren = [];
 
 export function showVaultSkeleton() {
     const container = document.getElementById('vaultStatsContent');
     if (!container) return;
-    if (container.querySelector('.vault-skeleton')) return;   // già skeleton attivo
-    if (_vaultOriginalMarkup === null) _vaultOriginalMarkup = container.innerHTML;
-    renderVaultStatsSkeleton(container);
+    if (_skeletonNode && container.contains(_skeletonNode)) return;   // già skeleton attivo
+
+    _hiddenChildren.length = 0;
+    Array.from(container.children).forEach(child => {
+        _hiddenChildren.push({ el: child, prevDisplay: child.style.display });
+        child.style.display = 'none';
+    });
+
+    const tmp = document.createElement('div');
+    renderVaultStatsSkeleton(tmp);
+    _skeletonNode = tmp.firstElementChild;
+    if (_skeletonNode) container.appendChild(_skeletonNode);
 }
 
 function restoreVaultMarkup() {
     const container = document.getElementById('vaultStatsContent');
-    if (!container || !container.querySelector('.vault-skeleton')) return;
-    if (_vaultOriginalMarkup !== null) container.innerHTML = _vaultOriginalMarkup;
+    if (!container) return;
+
+    if (_skeletonNode && _skeletonNode.parentNode === container) {
+        container.removeChild(_skeletonNode);
+    }
+    _skeletonNode = null;
+
+    _hiddenChildren.forEach(({ el, prevDisplay }) => {
+        el.style.display = prevDisplay || '';
+    });
+    _hiddenChildren.length = 0;
 }
 
 export async function updateAdvancedStats() {

@@ -28,7 +28,8 @@ import {
   hapticFeedback,
   ensurePapaParse,
   escapeHtml,
-  escapeAttr
+  escapeAttr,
+  askConfirm
 } from './utils.js';
 import { initTheme, initBottomNav, closeForm, closeReviewModal, openProfileModal, showProfileMainView, attachProfileListeners, showProfileConfirmPage, startRepairWithProgress, setUIDependencies } from './ui.js';
 import { setStatsDependencies, initVaultMap } from './stats.js';
@@ -1100,12 +1101,19 @@ document.getElementById('editBtn').addEventListener('click', async (event) => {
 
 document.getElementById('deleteBtn').addEventListener('click', async (event) => {
     event.preventDefault();
-    if(confirm("Delete forever?")){
-        await deleteDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
-        removeMovieFromCache(currentMovieId);
-        closeModal('reviewModal');
-        renderGallery();
-    }
+    const ok = await askConfirm({
+        title: 'Eliminare il film?',
+        message: 'Verrà rimosso definitivamente dalla tua collezione. L\'azione non può essere annullata.',
+        confirmText: 'Elimina',
+        cancelText: 'Annulla',
+        danger: true,
+        icon: '🗑️'
+    });
+    if (!ok) return;
+    await deleteDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
+    removeMovieFromCache(currentMovieId);
+    closeModal('reviewModal');
+    renderGallery();
 });
 
 // --- SIMILAR MOVIES & RECOMMENDATIONS ---

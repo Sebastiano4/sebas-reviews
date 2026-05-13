@@ -141,6 +141,80 @@ export function renderVaultStatsSkeleton(container) {
     `;
 }
 
+/**
+ * Modale di conferma in-app: sostituisce confirm() nativo con un'UI coerente
+ * con il resto dell'app (stile vote modal). Ritorna una Promise<boolean>.
+ *
+ *   const ok = await askConfirm({
+ *     title: 'Elimina film?',
+ *     message: 'L\'azione non può essere annullata.',
+ *     confirmText: 'Elimina',
+ *     cancelText: 'Annulla',
+ *     danger: true,
+ *     icon: '🗑️',
+ *   });
+ *
+ * NOTA: import dinamico di modal-manager per evitare cicli con utils.js.
+ */
+export function askConfirm({
+    title = 'Sei sicuro?',
+    message = '',
+    confirmText = 'Conferma',
+    cancelText = 'Annulla',
+    danger = false,
+    icon = '⚠️',
+} = {}) {
+    return new Promise(resolve => {
+        const modal = document.getElementById('confirmModal');
+        const content = modal?.querySelector('.confirm-modal-content');
+        const titleEl = document.getElementById('confirmTitle');
+        const msgEl = document.getElementById('confirmMessage');
+        const iconEl = document.getElementById('confirmIcon');
+        const okBtn = document.getElementById('confirmOkBtn');
+        const cancelBtn = document.getElementById('confirmCancelBtn');
+
+        if (!modal || !content || !okBtn || !cancelBtn) {
+            // Fallback se il markup non c'è (test/edge-case): usa confirm() nativo.
+            resolve(window.confirm(`${title}\n\n${message}`));
+            return;
+        }
+
+        titleEl.textContent = title;
+        msgEl.textContent = message;
+        msgEl.style.display = message ? '' : 'none';
+        iconEl.textContent = icon;
+        iconEl.style.display = icon ? '' : 'none';
+        okBtn.textContent = confirmText;
+        cancelBtn.textContent = cancelText;
+        content.classList.toggle('danger', !!danger);
+
+        import('./modal-manager.js').then(({ openModal, closeModal }) => {
+            const cleanup = () => {
+                okBtn.removeEventListener('click', onOk);
+                cancelBtn.removeEventListener('click', onCancel);
+                modal.removeEventListener('click', onBackdrop);
+                document.removeEventListener('keydown', onKey);
+                closeModal('confirmModal');
+            };
+            const onOk = () => { cleanup(); resolve(true); };
+            const onCancel = () => { cleanup(); resolve(false); };
+            const onBackdrop = (e) => { if (e.target === modal) onCancel(); };
+            const onKey = (e) => {
+                if (e.key === 'Escape') onCancel();
+                else if (e.key === 'Enter') onOk();
+            };
+
+            okBtn.addEventListener('click', onOk);
+            cancelBtn.addEventListener('click', onCancel);
+            modal.addEventListener('click', onBackdrop);
+            document.addEventListener('keydown', onKey);
+
+            openModal('confirmModal');
+            setTimeout(() => okBtn.focus(), 50);
+        });
+    });
+}
+
 export function showToast(message, duration = 2000) {
     const toast = document.createElement('div');
     toast.className = 'toast-notification';

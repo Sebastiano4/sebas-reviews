@@ -24,7 +24,8 @@ const MODAL_IDS = [
   'actorsRankingModal',
   'genreChartModal',
   'eloRankingModal',
-  'voteModal'
+  'voteModal',
+  'confirmModal'
 ];
 
 function syncModalStack() {

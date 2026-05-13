@@ -1,13 +1,19 @@
 require('dotenv').config();
-const functions = require('firebase-functions');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
+// IMPORTANTE: firebase-functions v7 carica v2 di default. La firma del callback
+// di onCall è (request) — con request.data, request.auth, ecc. — NON (data, context)
+// come in v1. Usando la firma v1 con la SDK v2, "context" finisce per essere
+// l'oggetto response, che non ha .auth, quindi !context.auth è sempre true e
+// ogni chiamata risponde "Utente non autenticato".
+
 function getGeminiApiKey() {
-  return functions.config()?.gemini?.key || process.env.GEMINI_API_KEY;
+  return process.env.GEMINI_API_KEY;
 }
 
 function getTmdbApiKey() {
-  return functions.config()?.tmdb?.key || process.env.TMDB_API_KEY;
+  return process.env.TMDB_API_KEY;
 }
 
 // Path TMDB consentiti: previene che il proxy venga usato per chiamate arbitrarie
@@ -27,21 +33,21 @@ function isAllowedTmdbPath(path) {
   return ALLOWED_TMDB_PATHS.some(re => re.test(path));
 }
 
-exports.tmdbProxy = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Utente non autenticato');
+exports.tmdbProxy = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Utente non autenticato');
   }
-  const { path, params = {} } = data || {};
+  const { path, params = {} } = request.data || {};
   if (typeof path !== 'string' || !path.startsWith('/')) {
-    throw new functions.https.HttpsError('invalid-argument', 'Path non valido');
+    throw new HttpsError('invalid-argument', 'Path non valido');
   }
   if (!isAllowedTmdbPath(path)) {
-    throw new functions.https.HttpsError('permission-denied', `Path TMDB non consentito: ${path}`);
+    throw new HttpsError('permission-denied', `Path TMDB non consentito: ${path}`);
   }
 
   const apiKey = getTmdbApiKey();
   if (!apiKey) {
-    throw new functions.https.HttpsError('failed-precondition', 'TMDB API key non configurata sul backend');
+    throw new HttpsError('failed-precondition', 'TMDB API key non configurata sul backend');
   }
 
   const url = new URL(`https://api.themoviedb.org/3${path}`);
@@ -56,32 +62,31 @@ exports.tmdbProxy = functions.https.onCall(async (data, context) => {
     const res = await fetch(url.toString());
     if (!res.ok) {
       const text = await res.text();
-      throw new functions.https.HttpsError('internal', `TMDB ${res.status}: ${text}`);
+      throw new HttpsError('internal', `TMDB ${res.status}: ${text}`);
     }
     return await res.json();
   } catch (err) {
-    if (err instanceof functions.https.HttpsError) throw err;
+    if (err instanceof HttpsError) throw err;
     console.error('TMDB proxy error:', err);
-    throw new functions.https.HttpsError('internal', err.message || 'Errore TMDB');
+    throw new HttpsError('internal', err.message || 'Errore TMDB');
   }
 });
 
 function createAiModel() {
   const geminiApiKey = getGeminiApiKey();
   if (!geminiApiKey) {
-    throw new Error('Missing Gemini API key: set functions.config().gemini.key or process.env.GEMINI_API_KEY');
+    throw new Error('Missing Gemini API key: set process.env.GEMINI_API_KEY');
   }
   const genAI = new GoogleGenerativeAI(geminiApiKey);
   return genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 }
 
-exports.analyzeReview = functions.https.onCall(async (data, context) => {
-  // Verifica autenticazione
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Utente non autenticato');
+exports.analyzeReview = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Utente non autenticato');
   }
 
-  const { reviewText, action } = data;
+  const { reviewText, action } = request.data || {};
 
   try {
     let prompt = '';
@@ -96,14 +101,14 @@ exports.analyzeReview = functions.https.onCall(async (data, context) => {
       case 'title':
         prompt = `Genera un titolo accattivante per questa recensione di film: "${reviewText}". Max 10 parole.`;
         break;
-        case 'advice':
+      case 'advice':
         prompt = `Basandoti su questa recensione, fornisci 2-3 consigli pratici per migliorare future recensioni simili: "${reviewText}"`;
         break;
       case 'chat':
         prompt = `Sei l'assistente esperto di Sebas-Reviews. Rispondi in italiano in modo amichevole e conciso al seguente messaggio dell'utente: "${reviewText}"`;
         break;
       default:
-        throw new functions.https.HttpsError('invalid-argument', 'Azione non valida');
+        throw new HttpsError('invalid-argument', 'Azione non valida');
     }
 
     const model = createAiModel();
@@ -112,7 +117,8 @@ exports.analyzeReview = functions.https.onCall(async (data, context) => {
 
     return { result: response };
   } catch (error) {
+    if (error instanceof HttpsError) throw error;
     console.error('Errore AI:', error);
-    throw new functions.https.HttpsError('internal', 'Errore nell\'analisi AI');
+    throw new HttpsError('internal', 'Errore nell\'analisi AI');
   }
 });
