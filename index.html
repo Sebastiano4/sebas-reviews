@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="src/css/ui.css">
     <link rel="stylesheet" href="src/css/themes.css">
     <link rel="stylesheet" href="src/css/responsive.css">
+    <link rel="stylesheet" href="src/css/modern.css">
     <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
@@ -35,6 +36,7 @@
 
         <!-- Barra di navigazione inferiore (solo mobile) -->
         <div class="bottom-nav">
+            <span class="bottom-nav-indicator" aria-hidden="true"></span>
             <button class="bottom-nav-item" data-view="explore"><span>🔍</span>Explore</button>
             <button class="bottom-nav-item active" data-view="archive"><span>🎬</span>Archive</button>
             <button class="bottom-nav-item" data-view="watchlist"><span>📋</span>Watchlist</button>
@@ -52,23 +54,36 @@
             <div class="nav-actions">
                 <button id="statsBtn" class="btn-primary" style="background: #1e293b;">📊 Vault</button>
                 <button id="battleBtn" class="btn-primary" style="background: linear-gradient(135deg, #c4302b 0%, #8b2e27 100%); font-weight: 700;">⚔️ BATTLE</button>
-                <select id="viewMode" class="filter-select">
-                    <option value="archive">View Archive</option>
-                    <option value="watchlist">View Watchlist</option>
-                    <option value="explore">🔍 Explore</option>
-                </select>
-                <input type="text" id="mainSearch" placeholder="Search titles or awards...">
                 <button id="addBtn" class="btn-primary">+ New Entry</button>
             </div>
         </nav>
 
+        <!-- Sub-bar: titoli + lista visualizzazione -->
+        <div class="subnav">
+            <input type="text" id="mainSearch" placeholder="Search titles or awards...">
+            <select id="viewMode" class="filter-select">
+                <option value="archive">Archive</option>
+                <option value="watchlist">Watchlist</option>
+                <option value="explore">🔍 Explore</option>
+            </select>
+        </div>
+
         <!-- Filtri normali (Archivio / Watchlist) -->
-        <div id="normalFilters" class="advanced-filters" style="display:flex;">
-            <select id="filterYear" class="filter-select"><option value="">All Years</option></select>
-            <input type="text" id="filterDirector" class="filter-select" list="directorOptions" placeholder="Search Director...">
+        <div id="normalFilters" class="advanced-filters" style="display:flex;" data-collapsed="true">
+            <select id="sortOrder" class="filter-select">
+                <option value="newest_added">Newest Added</option>
+                <option value="highest_rated">Highest Rated</option>
+                <option value="year_new">Year (Newest)</option>
+                <option value="year_old">Year (Oldest)</option>
+            </select>
+            <button id="toggleSecondaryFilters" class="filters-toggle" type="button" aria-expanded="false" aria-controls="normalFilters">
+                <span>Filters</span><span class="chevron">▾</span>
+            </button>
+            <select id="filterYear" class="filter-select secondary-filter"><option value="">All Years</option></select>
+            <input type="text" id="filterDirector" class="filter-select secondary-filter" list="directorOptions" placeholder="Director…">
             <datalist id="directorOptions"></datalist>
-            <select id="filterGenre" class="filter-select"><option value="">All Genres</option></select>
-            <select id="filterAward" class="filter-select">
+            <select id="filterGenre" class="filter-select secondary-filter"><option value="">All Genres</option></select>
+            <select id="filterAward" class="filter-select secondary-filter">
                 <option value="">Any Award</option>
                 <option value="none">❌ No Award</option>
                 <option value="🎥 Cinematography">🎥 Cinematography</option>
@@ -78,20 +93,14 @@
                 <option value="🤯 Mind-Bending">🤯 Mind-Bending</option>
                 <option value="🥹 Emotional">🥹 Emotional</option>
             </select>
-            <label class="filter-checkbox"><input type="checkbox" id="filterHasReview"> 📝 Written Only</label>
-            <select id="filterRating" class="filter-select">
+            <label class="filter-checkbox secondary-filter"><input type="checkbox" id="filterHasReview"> 📝 Written Only</label>
+            <select id="filterRating" class="filter-select secondary-filter">
                 <option value="">Any Rating</option>
                 <option value="10">10/10 Only</option>
                 <option value="9">9.0+</option>
                 <option value="8">8.0+</option>
             </select>
-            <select id="sortOrder" class="filter-select">
-                <option value="newest_added">Newest Added</option>
-                <option value="highest_rated">Highest Rated</option>
-                <option value="year_new">Year (Newest)</option>
-                <option value="year_old">Year (Oldest)</option>
-            </select>
-            <button id="resetFiltersBtn" class="btn-primary" style="background: var(--border);">Reset</button>
+            <button id="resetFiltersBtn" class="btn-primary">Reset</button>
         </div>
 
         <!-- Filtri Explore (TMDB) -->
@@ -106,7 +115,7 @@
             </select>
             <input type="number" id="exploreMinVotes" class="filter-select" placeholder="Min. votes" min="0" value="1000" style="width: 110px;">
             <button id="applyExploreFilters" class="btn-primary">🔍 Search</button>
-            <button id="resetExploreFiltersBtn" class="btn-primary" style="background: var(--border);">Reset</button>
+            <button id="resetExploreFiltersBtn" class="btn-primary">Reset</button>
         </div>
 
         <!-- Decade filters -->

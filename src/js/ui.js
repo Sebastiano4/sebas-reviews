@@ -52,15 +52,31 @@ export function initTheme() {
 
 // --- BOTTOM NAVIGATION ---
 export function initBottomNav() {
+    const nav = document.querySelector('.bottom-nav');
+    const indicator = nav?.querySelector('.bottom-nav-indicator');
     const items = document.querySelectorAll('.bottom-nav-item[data-view]');
     const viewSelect = document.getElementById('viewMode');
 
+    function positionIndicator() {
+        if (!nav || !indicator) return;
+        const active = nav.querySelector('.bottom-nav-item.active');
+        if (!active) {
+            indicator.classList.remove('ready');
+            return;
+        }
+        const navRect = nav.getBoundingClientRect();
+        const itemRect = active.getBoundingClientRect();
+        const left = itemRect.left - navRect.left;
+        indicator.style.width = `${itemRect.width}px`;
+        indicator.style.transform = `translateX(${left}px)`;
+        indicator.classList.add('ready');
+    }
+
     items.forEach(item => {
         item.addEventListener('click', () => {
-            // Rimuovi classe active da tutti
             items.forEach(i => i.classList.remove('active'));
-            // Aggiungila al cliccato
             item.classList.add('active');
+            positionIndicator();
 
             const view = item.getAttribute('data-view');
             if (view === 'stats') {
@@ -77,6 +93,34 @@ export function initBottomNav() {
     document.getElementById('bottomAddBtn')?.addEventListener('click', () => {
         closeForm();
         openModal('modal');
+    });
+
+    // Initial placement + keep in sync on resize/orientation.
+    requestAnimationFrame(positionIndicator);
+    window.addEventListener('resize', positionIndicator);
+    window.addEventListener('orientationchange', positionIndicator);
+
+    // Re-sync when view changes from the desktop select.
+    viewSelect?.addEventListener('change', () => {
+        const v = viewSelect.value;
+        const target = nav?.querySelector(`.bottom-nav-item[data-view="${v}"]`);
+        if (target) {
+            items.forEach(i => i.classList.remove('active'));
+            target.classList.add('active');
+            positionIndicator();
+        }
+    });
+}
+
+// --- SECONDARY FILTERS TOGGLE ---
+export function initFiltersToggle() {
+    const toggle = document.getElementById('toggleSecondaryFilters');
+    const panel = document.getElementById('normalFilters');
+    if (!toggle || !panel) return;
+    toggle.addEventListener('click', () => {
+        const expanded = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!expanded));
+        panel.dataset.collapsed = expanded ? 'true' : 'false';
     });
 }
 

@@ -32,7 +32,7 @@ import {
   escapeAttr,
   askConfirm
 } from './utils.js';
-import { initTheme, initBottomNav, closeForm, closeReviewModal, openProfileModal, showProfileMainView, attachProfileListeners, showProfileConfirmPage, startRepairWithProgress, setUIDependencies } from './ui.js';
+import { initTheme, initBottomNav, initFiltersToggle, closeForm, closeReviewModal, openProfileModal, showProfileMainView, attachProfileListeners, showProfileConfirmPage, startRepairWithProgress, setUIDependencies } from './ui.js';
 import { setStatsDependencies, initVaultMap } from './stats.js';
 import { startBattle, closeBattleModal, migrateMoviesToElo, resetEloSystemState } from './elo.js';
 import { initModalSystem, openModal, closeModal } from './modal-manager.js';
@@ -270,6 +270,7 @@ initVaultMap();
 // Initialize UI components
 initTheme();
 initBottomNav();
+initFiltersToggle();
 
 
 
@@ -1232,12 +1233,19 @@ document.getElementById('viewMode').onchange = () => {
     const mode = document.getElementById('viewMode').value;
     syncFilterUI(mode);
 
-    if (mode === 'explore') {
-        resetInfiniteScroll();
-    } else {
-        renderGallery();
-    }
-    startDynamicSpotlight();
+    // Crossfade transition: fade out current content, swap, fade back in.
+    const appRoot = document.getElementById('app');
+    const FADE_MS = 200;
+    appRoot?.classList.add('view-fading-out');
+    setTimeout(() => {
+        if (mode === 'explore') {
+            resetInfiniteScroll();
+        } else {
+            renderGallery();
+        }
+        startDynamicSpotlight();
+        requestAnimationFrame(() => appRoot?.classList.remove('view-fading-out'));
+    }, FADE_MS);
 };
 
 document.getElementById('repairMetadataBtn')?.addEventListener('click', async () => {

@@ -1,0 +1,671 @@
+/* =========================================
+   MODERN — UI Evolution layer.
+   Loaded LAST so its rules win without resorting to !important.
+   Tokens, refined typography, unified buttons, modals,
+   floating bottom-nav, view crossfade.
+   ========================================= */
+
+:root {
+    /* Motion */
+    --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+    --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --dur-fast: 140ms;
+    --dur-med: 220ms;
+    --dur-slow: 320ms;
+
+    /* Surfaces */
+    --surface-1: rgba(255, 255, 255, 0.03);
+    --surface-2: rgba(255, 255, 255, 0.05);
+    --surface-3: rgba(255, 255, 255, 0.08);
+    --hairline: rgba(255, 255, 255, 0.06);
+    --hairline-strong: rgba(255, 255, 255, 0.1);
+
+    /* Radii */
+    --r-sm: 10px;
+    --r-md: 14px;
+    --r-lg: 20px;
+    --r-pill: 999px;
+}
+
+body.theme-light {
+    --surface-1: rgba(0, 0, 0, 0.025);
+    --surface-2: rgba(0, 0, 0, 0.045);
+    --surface-3: rgba(0, 0, 0, 0.07);
+    --hairline: rgba(0, 0, 0, 0.06);
+    --hairline-strong: rgba(0, 0, 0, 0.1);
+}
+
+/* =========================================
+   GLOBAL MICRO-INTERACTIONS
+   ========================================= */
+
+button,
+.btn-primary,
+.btn-save,
+.btn-quick,
+.profile-btn,
+.filter-select,
+.decade-btn,
+.award-chip,
+.bottom-nav-item {
+    transition:
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out),
+        color var(--dur-fast) var(--ease-out),
+        box-shadow var(--dur-fast) var(--ease-out),
+        transform var(--dur-fast) var(--ease-out);
+}
+
+button:active,
+.btn-primary:active,
+.btn-save:active,
+.btn-quick:active,
+.profile-btn:active,
+.award-chip:active,
+.decade-btn:active {
+    transform: scale(0.975);
+}
+
+/* =========================================
+   TYPOGRAPHY REFINEMENTS
+   ========================================= */
+
+body {
+    line-height: 1.6;
+    letter-spacing: 0.005em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.modern-label,
+.toggle-label {
+    font-weight: 500;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    text-transform: none;
+}
+
+.nav-subtitle {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    font-style: normal;
+    opacity: 0.8;
+}
+
+/* =========================================
+   HEADER — slimmer, less boxy
+   ========================================= */
+
+header {
+    padding: 10px 5%;
+    background: rgba(10, 12, 16, 0.55);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--hairline);
+    gap: 8px;
+}
+
+header .profile-btn {
+    padding: 0.4rem 0.9rem;
+    font-size: 1rem;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline-strong);
+    color: var(--text-main);
+    border-radius: var(--r-pill);
+    box-shadow: none;
+}
+
+header .profile-btn:hover {
+    background: var(--surface-3);
+    transform: none;
+}
+
+#login-btn.btn-primary {
+    box-shadow: none;
+    padding: 0.5rem 1.1rem;
+    font-size: 0.85rem;
+    border-radius: var(--r-pill);
+}
+
+/* =========================================
+   NAVBAR — more breathing room
+   ========================================= */
+
+.navbar {
+    padding: 1.1rem 5% 0.9rem;
+    background: rgba(10, 11, 14, 0.55);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border-bottom: 1px solid var(--hairline);
+    gap: 1.4rem;
+    align-items: center;
+}
+
+.logo {
+    font-size: 1.6rem;
+    letter-spacing: 3px;
+    text-shadow: none;
+}
+
+.logo::after {
+    bottom: -4px;
+    height: 1px;
+    opacity: 0.5;
+}
+
+.brand .nav-subtitle {
+    margin-top: 6px;
+}
+
+.nav-actions {
+    gap: 0.6rem;
+    align-items: center;
+}
+
+/* Secondary thin bar under the navbar for search + list selector */
+.subnav {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.55rem 5%;
+    background: rgba(10, 11, 14, 0.4);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--hairline);
+    position: sticky;
+    top: 0;
+    z-index: 900;
+}
+
+.subnav #mainSearch {
+    flex: 1;
+    min-width: 200px;
+    height: 36px;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--hairline-strong);
+    background: var(--surface-1);
+    padding: 0 1rem;
+    font-size: 0.88rem;
+    color: var(--text-main);
+}
+
+.subnav #mainSearch:focus {
+    border-color: rgba(255, 255, 255, 0.22);
+    background: var(--surface-2);
+    box-shadow: none;
+}
+
+.subnav #viewMode.filter-select {
+    height: 36px;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--hairline-strong);
+    background: var(--surface-1);
+    padding: 0 2.2rem 0 1rem;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    min-width: 130px;
+}
+
+/* =========================================
+   FILTERS — minimal, less clutter
+   ========================================= */
+
+.advanced-filters,
+.decade-filters {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-bottom: 1px solid var(--hairline);
+    padding: 0.8rem 5%;
+    gap: 0.55rem;
+}
+
+.advanced-filters {
+    align-items: center;
+}
+
+.filter-select,
+.filter-checkbox,
+.advanced-filters #mainSearch {
+    height: 34px;
+    background: var(--surface-1);
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-pill);
+    color: var(--text-main);
+    padding: 0 0.95rem;
+    font-size: 0.82rem;
+    line-height: 1;
+    box-shadow: none;
+}
+
+.filter-select:hover,
+.filter-checkbox:hover {
+    background: var(--surface-2);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.filter-select:focus,
+.advanced-filters #mainSearch:focus {
+    border-color: rgba(255, 255, 255, 0.28);
+    background: var(--surface-2);
+    box-shadow: none;
+}
+
+.filter-checkbox {
+    font-weight: 500;
+}
+
+.filter-checkbox input[type="checkbox"] {
+    accent-color: var(--accent);
+}
+
+/* Reset button blends into the row */
+#resetFiltersBtn.btn-primary,
+#resetExploreFiltersBtn.btn-primary {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--hairline-strong);
+    padding: 0 0.95rem;
+    height: 34px;
+    font-size: 0.8rem;
+    box-shadow: none;
+    border-radius: var(--r-pill);
+}
+
+#resetFiltersBtn.btn-primary:hover,
+#resetExploreFiltersBtn.btn-primary:hover {
+    background: var(--surface-2);
+    color: var(--text-main);
+    transform: none;
+}
+
+/* Secondary filters drawer — collapsed by default */
+.filters-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 34px;
+    padding: 0 0.95rem;
+    background: var(--surface-1);
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-pill);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.filters-toggle .chevron {
+    display: inline-block;
+    transition: transform var(--dur-med) var(--ease-out);
+    font-size: 0.7rem;
+}
+
+.filters-toggle[aria-expanded="true"] .chevron {
+    transform: rotate(180deg);
+}
+
+.filters-toggle:hover {
+    background: var(--surface-2);
+    color: var(--text-main);
+}
+
+.advanced-filters[data-collapsed="true"] > .secondary-filter {
+    display: none !important;
+}
+
+/* =========================================
+   DECADE — segmented control
+   ========================================= */
+
+.decade-filters {
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    padding: 0.5rem 5% 0.7rem;
+    gap: 0;
+}
+
+.decade-filters::-webkit-scrollbar { display: none; }
+
+.decade-filters > span {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin-right: 0.85rem;
+    white-space: nowrap;
+    opacity: 0.75;
+    font-weight: 500;
+}
+
+.decade-btn {
+    height: 32px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    padding: 0 0.85rem;
+    font-size: 0.8rem;
+    border-radius: var(--r-pill);
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: none;
+}
+
+.decade-btn:hover {
+    color: var(--text-main);
+    background: var(--surface-1);
+}
+
+.decade-btn.active {
+    background: var(--surface-3);
+    color: var(--text-main);
+    border-color: var(--hairline-strong);
+}
+
+/* =========================================
+   BUTTONS — coherent, soft
+   ========================================= */
+
+.btn-primary {
+    padding: 0.5rem 1.1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    border-radius: var(--r-pill);
+    box-shadow: none;
+}
+
+.btn-primary:hover {
+    background: #d43f3a;
+    box-shadow: none;
+    transform: none;
+}
+
+/* Kill the shimmer wipe — old style */
+.btn-primary::after {
+    display: none !important;
+}
+
+.btn-save {
+    padding: 0.85rem;
+    border-radius: var(--r-pill);
+    box-shadow: none;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.btn-quick {
+    padding: 5px 10px;
+    border-radius: var(--r-pill);
+    background: var(--surface-2);
+    font-weight: 600;
+    font-size: 0.7rem;
+}
+
+.btn-quick:hover {
+    background: var(--surface-3);
+}
+
+.nav-actions .btn-primary {
+    font-size: 0.8rem;
+    padding: 0.45rem 0.95rem;
+}
+
+/* =========================================
+   BOTTOM NAV — floating frosted pill
+   ========================================= */
+
+.bottom-nav {
+    bottom: 14px;
+    left: 50%;
+    width: auto;
+    max-width: calc(100% - 24px);
+    transform: translateX(-50%);
+    height: 58px;
+    background: rgba(15, 17, 21, 0.55);
+    backdrop-filter: blur(28px) saturate(140%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--r-pill);
+    padding: 6px 8px;
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.55),
+        0 2px 6px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    gap: 2px;
+    justify-content: space-around;
+    align-items: center;
+    overflow: hidden;
+    position: fixed;
+}
+
+.bottom-nav-indicator {
+    position: absolute;
+    top: 6px;
+    left: 0;
+    height: calc(100% - 12px);
+    width: 0;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--r-pill);
+    transform: translateX(0);
+    transition:
+        transform var(--dur-slow) var(--ease-out-soft),
+        width var(--dur-slow) var(--ease-out-soft),
+        opacity var(--dur-med) var(--ease-out);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 0;
+}
+
+.bottom-nav-indicator.ready {
+    opacity: 1;
+}
+
+.bottom-nav-item {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: none;
+    border-radius: var(--r-pill);
+    padding: 6px 8px;
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    gap: 1px;
+    color: var(--text-muted);
+}
+
+.bottom-nav-item span {
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
+.bottom-nav-item.active {
+    color: var(--text-main);
+}
+
+/* =========================================
+   MODALS — unified transitions
+   ========================================= */
+
+.modal {
+    opacity: 0;
+    transition: opacity var(--dur-med) var(--ease-out);
+    will-change: opacity;
+}
+
+.modal.active {
+    opacity: 1;
+}
+
+.modal.closing {
+    opacity: 0;
+}
+
+.modal-content {
+    animation: none !important;
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+    transition:
+        opacity var(--dur-med) var(--ease-out),
+        transform var(--dur-slow) var(--ease-out-soft);
+    will-change: opacity, transform;
+    border-radius: var(--r-lg);
+    border: 1px solid var(--hairline-strong);
+    box-shadow:
+        0 24px 48px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.modal.active .modal-content {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.modal.closing .modal-content {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+}
+
+/* Review modal special-case: keep its extra scale transition, but on the unified .active hook */
+#reviewModal.modal .review-content {
+    transform: translateY(14px) scale(0.985);
+}
+
+#reviewModal.modal.active .review-content {
+    transform: translateY(0) scale(1);
+}
+
+#reviewModal.modal.closing .review-content {
+    transform: translateY(8px) scale(0.99);
+}
+
+/* Mobile sheet animation overrides */
+@media (max-width: 768px) {
+    .modal-content {
+        animation: none !important;
+        transform: translateY(28px);
+        transition:
+            opacity var(--dur-med) var(--ease-out),
+            transform var(--dur-slow) var(--ease-out-soft);
+    }
+
+    .modal.active .modal-content {
+        transform: translateY(0);
+    }
+
+    .modal.closing .modal-content {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    #statsModal.modal .modal-content {
+        transform: translateY(14px) scale(0.985);
+    }
+
+    #statsModal.modal.active .modal-content {
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Close buttons — softer */
+.close-modal,
+.close-review,
+.close-stats,
+.close-trailer,
+.close-vote,
+.close-profile,
+.close-import-export {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-pill);
+    background: var(--surface-1);
+    border: 1px solid var(--hairline-strong);
+    transition: background var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out);
+    font-size: 1.4rem;
+    top: 16px;
+    right: 16px;
+}
+
+.close-modal:hover,
+.close-review:hover,
+.close-stats:hover,
+.close-trailer:hover,
+.close-vote:hover,
+.close-profile:hover,
+.close-import-export:hover {
+    background: var(--surface-3);
+    color: var(--text-main);
+}
+
+/* Inputs in modal — slightly slimmer */
+.modern-input {
+    background: var(--surface-1);
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-md);
+    padding: 0.7rem 1rem;
+    font-size: 0.92rem;
+    transition: border-color var(--dur-fast) var(--ease-out),
+                background var(--dur-fast) var(--ease-out);
+}
+
+.modern-input:focus {
+    border-color: rgba(255, 255, 255, 0.28);
+    background: var(--surface-2);
+    box-shadow: none;
+}
+
+/* Award chips: softer active state */
+.award-chip.active {
+    box-shadow: none;
+}
+
+.award-chip {
+    border-radius: var(--r-pill);
+    padding: 0.45rem 1rem;
+    font-size: 0.8rem;
+}
+
+/* =========================================
+   VIEW CROSSFADE
+   ========================================= */
+
+#gallery,
+#spotlightHeader,
+#recommendationsSection {
+    transition:
+        opacity 200ms var(--ease-out),
+        transform 240ms var(--ease-out-soft);
+    will-change: opacity, transform;
+}
+
+#app.view-fading-out #gallery,
+#app.view-fading-out #spotlightHeader,
+#app.view-fading-out #recommendationsSection {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
+/* =========================================
+   RESPONSIVE TWEAKS
+   ========================================= */
+
+@media (max-width: 768px) {
+    .navbar { padding: 0.85rem 4% 0.6rem; gap: 0.8rem; }
+    .logo { font-size: 1.35rem; letter-spacing: 2px; }
+    .subnav { padding: 0.45rem 4%; gap: 0.5rem; }
+
+    .nav-actions .btn-primary { padding: 0.45rem 0.85rem; font-size: 0.78rem; }
+
+    .advanced-filters, .decade-filters { padding: 0.7rem 4%; }
+
+    #app-content { padding-bottom: 96px; }
+}

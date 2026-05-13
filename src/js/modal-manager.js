@@ -119,17 +119,44 @@ export function isAnyModalOpen() {
   return modalStack.length > 0;
 }
 
+// Unified modal transitions: open with slide-up + fade-in, close with
+// fade-out + slight slide-down. Duration must match `--dur-med` in modern.css.
+const MODAL_EXIT_MS = 220;
+const pendingHide = new WeakMap();
+
 function showModalElement(el) {
   if (!el) return;
+  // Cancel any pending hide so a rapid close→open doesn't snap to display:none.
+  const prev = pendingHide.get(el);
+  if (prev) {
+    clearTimeout(prev);
+    pendingHide.delete(el);
+  }
+  el.classList.remove('closing');
   const displayType = el.id === 'battleModal' ? 'flex' : 'block';
   el.style.display = displayType;
+  // Force a reflow so the transition fires from the off-state.
+  void el.offsetWidth;
   el.classList.add('active');
 }
 
 function hideModalElement(el) {
   if (!el) return;
-  el.style.display = 'none';
+  // Already hidden? Just normalize.
+  if (el.style.display === 'none' && !el.classList.contains('active')) {
+    el.classList.remove('closing');
+    return;
+  }
   el.classList.remove('active');
+  el.classList.add('closing');
+  const prev = pendingHide.get(el);
+  if (prev) clearTimeout(prev);
+  const t = setTimeout(() => {
+    el.style.display = 'none';
+    el.classList.remove('closing');
+    pendingHide.delete(el);
+  }, MODAL_EXIT_MS);
+  pendingHide.set(el, t);
 }
 
 // ---- POPSTATE INTERCEPTORS ----
