@@ -171,56 +171,81 @@ function setProfileButtonAvatar(profilePic) {
     }
 }
 
+const PROFILE_ICONS = {
+    theme: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+    importExport: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    cache: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+    wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.121 2.121 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+    logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+    chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
+};
+
 export function showProfileMainView() {
     profileState = 'main';
     const container = document.getElementById('profileDynamicContent');
-    // Ripristina l'HTML della vista principale
     container.innerHTML = `
         <div id="profileMainView">
-            <div class="detail-section" style="margin-bottom:1.5rem;">
-                <h4>📷 Avatar & Name</h4>
-                <div style="display:flex; align-items:center; gap:16px;">
-                    <label for="profilePicInput" style="cursor:pointer; position:relative;">
-                        <img id="profilePicPreview" src="" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--accent); background:#1e293b;">
-                        <span style="position:absolute; bottom:0; right:0; background:var(--accent); color:white; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:0.7rem;">✎</span>
-                    </label>
-                    <input type="file" id="profilePicInput" accept="image/*" style="display:none;">
-                    <div style="flex:1;">
-                        <p id="profileNickname" style="font-weight:700; font-size:1.1rem; margin:0 0 4px 0;"></p>
-                        <p id="profileEmail" style="color:var(--text-muted); font-size:0.85rem; margin:0 0 6px 0;"></p>
-                        <button class="btn-primary" id="editNicknameBtn" style="padding:0.4rem 1rem; font-size:0.85rem;">✏️ Edit Nickname</button>
-                    </div>
+            <div class="profile-banner">
+                <label class="profile-avatar-wrap" for="profilePicInput" title="Change avatar">
+                    <img id="profilePicPreview" class="profile-avatar" src="" alt="Avatar">
+                    <span class="profile-avatar-edit" aria-hidden="true">${PROFILE_ICONS.pencil}</span>
+                </label>
+                <input type="file" id="profilePicInput" accept="image/*" style="display:none;">
+                <div class="profile-identity">
+                    <h3 class="profile-nickname">
+                        <span id="profileNickname"></span>
+                        <button class="profile-nickname-edit" id="editNicknameBtn" title="Edit nickname" aria-label="Edit nickname">${PROFILE_ICONS.pencil}</button>
+                    </h3>
+                    <p class="profile-email" id="profileEmail"></p>
                 </div>
             </div>
 
-            <div class="detail-section" style="margin-bottom:1.5rem;">
-                <h4>⚙️ Quick Actions</h4>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <button class="profile-btn" id="themeToggleProfile">🌙 Theme</button>
-                    <button class="profile-btn" id="openImportExportBtn">📁 Import / Export</button>
-                    <button class="profile-btn" id="clearCacheBtn">🗑️ Clear Cache</button>
-                    <button class="profile-btn" id="repairFromProfileBtn">🛠️ Repair Metadata</button>
-                </div>
+            <div class="profile-group">
+                <p class="profile-group-label">Preferences</p>
+                <button class="profile-row" id="themeToggleProfile">
+                    <span class="profile-row-icon">${PROFILE_ICONS.theme}</span>
+                    <span class="profile-row-label">Theme</span>
+                    <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
+                </button>
+                <button class="profile-row" id="openImportExportBtn">
+                    <span class="profile-row-icon">${PROFILE_ICONS.importExport}</span>
+                    <span class="profile-row-label">Import / Export</span>
+                    <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
+                </button>
+                <button class="profile-row" id="repairFromProfileBtn">
+                    <span class="profile-row-icon">${PROFILE_ICONS.wrench}</span>
+                    <span class="profile-row-label">Repair Metadata</span>
+                    <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
+                </button>
+                <button class="profile-row" id="clearCacheBtn">
+                    <span class="profile-row-icon">${PROFILE_ICONS.cache}</span>
+                    <span class="profile-row-label">Clear Cache</span>
+                    <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
+                </button>
             </div>
 
-            <div class="detail-section" style="margin-bottom:1.5rem;">
-                <h4>🔐 Account</h4>
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <button class="profile-btn" id="logoutFromProfileBtn">🚪 Logout</button>
-                    <button class="profile-btn danger" id="deleteArchiveBtn">⚠️ Delete Entire Archive</button>
-                </div>
+            <div class="profile-group">
+                <p class="profile-group-label">Account</p>
+                <button class="profile-row" id="logoutFromProfileBtn">
+                    <span class="profile-row-icon">${PROFILE_ICONS.logout}</span>
+                    <span class="profile-row-label">Logout</span>
+                    <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
+                </button>
+                <button class="profile-row danger" id="deleteArchiveBtn">
+                    <span class="profile-row-icon">${PROFILE_ICONS.alert}</span>
+                    <span class="profile-row-label">Delete Entire Archive</span>
+                    <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
+                </button>
             </div>
 
-            <p style="margin-top:0.5rem; font-size:0.75rem; color:var(--text-muted); text-align:center;">
-                Seba's Reviews v2.0 · Firebase + TMDB + OMDb
-            </p>
+            <p class="profile-footer">Seba's Reviews v2.0 · Firebase · TMDB · OMDb</p>
         </div>
     `;
 
-    // Ricollega i listener (perché l'HTML è stato rigenerato)
     attachProfileListeners();
 
-    // Carica dati personali
     const currentUser = getCurrentUser();
     const savedNick = localStorage.getItem('sebas-nickname');
     document.getElementById('profileNickname').innerText = savedNick || currentUser?.displayName || 'User';

@@ -326,26 +326,9 @@ async function buildVaultMapLayer() {
     vaultMap.fitBounds(vaultMapLayer.getBounds(), { padding: [20, 20] });
 }
 
-function isVaultMapVisible() {
-    const mapView = document.getElementById('vaultMapView');
-    return mapView && mapView.style.display !== 'none';
-}
-
-function closeVaultMapViewNow() {
-    const mapView = document.getElementById('vaultMapView');
-    const statsContent = document.getElementById('vaultStatsContent');
-    if (!mapView || mapView.style.display === 'none') return;
-    mapView.style.display = 'none';
-    if (statsContent) statsContent.style.display = 'block';
-}
+let mapInitialized = false;
 
 export async function openVaultMapView() {
-    const statsContent = document.getElementById('vaultStatsContent');
-    const mapView = document.getElementById('vaultMapView');
-    if (!mapView || !statsContent) return;
-
-    statsContent.style.display = 'none';
-    mapView.style.display = 'flex';
     countryFilmMapping = await buildVaultMovieCountryMap();
     vaultMaxCountryCount = Math.max(1, ...Object.values(countryFilmMapping).map(arr => arr.length));
     updateVaultMapSummary();
@@ -367,30 +350,99 @@ export async function openVaultMapView() {
 
     await buildVaultMapLayer();
     vaultMap.invalidateSize();
+    mapInitialized = true;
 }
 
 export function requestCloseVaultMapView() {
-    if (history.state && history.state.vaultMapOpen) {
-        history.back();
-    } else {
-        closeVaultMapViewNow();
-    }
+    // Map now lives inside the "Map" tab — closing it means switching back to the
+    // Overview tab. Used by the popstate interceptor for browser back button.
+    const overviewTab = document.querySelector('.vault-tab[data-tab="overview"]');
+    if (overviewTab) activateVaultTab(overviewTab);
 }
 
 function vaultMapPopStateHandler() {
-    if (!isVaultMapVisible()) return false;
-    closeVaultMapViewNow();
+    const mapPanel = document.querySelector('.vault-panel[data-panel="map"]');
+    if (!mapPanel || !mapPanel.classList.contains('active')) return false;
+    requestCloseVaultMapView();
     return true;
 }
 
-export function initVaultMap() {
-    document.getElementById('openVaultMapBtn')?.addEventListener('click', async () => {
-        await openVaultMapView();
-        history.pushState({ vaultMapOpen: true }, '', window.location.href);
+function moveVaultTabIndicator(activeTab) {
+    const indicator = document.querySelector('.vault-tab-indicator');
+    if (!indicator || !activeTab) return;
+    const tabsContainer = activeTab.parentElement;
+    const containerRect = tabsContainer.getBoundingClientRect();
+    const tabRect = activeTab.getBoundingClientRect();
+    indicator.style.width = `${tabRect.width}px`;
+    indicator.style.transform = `translateX(${tabRect.left - containerRect.left - 4}px)`;
+}
+
+function activateVaultTab(tab) {
+    const tabs = document.querySelectorAll('.vault-tab');
+    const panels = document.querySelectorAll('.vault-panel');
+    const target = tab.dataset.tab;
+
+    tabs.forEach(t => {
+        const isActive = t === tab;
+        t.classList.toggle('active', isActive);
+        t.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
 
-    document.getElementById('closeVaultMapBtn')?.addEventListener('click', requestCloseVaultMapView);
+    panels.forEach(p => {
+        const isActive = p.dataset.panel === target;
+        p.classList.toggle('active', isActive);
+        if (isActive) {
+            p.removeAttribute('hidden');
+        } else {
+            p.setAttribute('hidden', '');
+        }
+    });
+
+    requestAnimationFrame(() => moveVaultTabIndicator(tab));
+
+    if (target === 'map') {
+        if (!history.state?.vaultMapOpen) {
+            history.pushState({ vaultMapOpen: true }, '', window.location.href);
+        }
+        openVaultMapView().catch(err => console.error('Vault map failed:', err));
+    }
+}
+
+export function initVaultMap() {
+    const tabs = document.querySelectorAll('.vault-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => activateVaultTab(tab));
+    });
+
+    // Position the indicator on first paint and on window resize
+    const initIndicator = () => {
+        const active = document.querySelector('.vault-tab.active') || tabs[0];
+        if (active) moveVaultTabIndicator(active);
+        const indicator = document.querySelector('.vault-tab-indicator');
+        if (indicator) indicator.classList.add('ready');
+    };
+
+    // Reset indicator each time the stats modal opens (tabs may have been hidden)
+    const observer = new MutationObserver(() => {
+        const modal = document.getElementById('statsModal');
+        if (modal?.classList.contains('active')) {
+            requestAnimationFrame(initIndicator);
+            // Invalidate map size if user re-enters Map tab after open
+            if (vaultMap && document.querySelector('.vault-panel[data-panel="map"]')?.classList.contains('active')) {
+                vaultMap.invalidateSize();
+            }
+        }
+    });
+    const modal = document.getElementById('statsModal');
+    if (modal) observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+
+    window.addEventListener('resize', () => {
+        const active = document.querySelector('.vault-tab.active');
+        if (active) moveVaultTabIndicator(active);
+    });
+
     registerPopStateInterceptor(vaultMapPopStateHandler);
+    initIndicator();
 }
 
 export async function buildDirectorsRanking() {

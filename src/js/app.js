@@ -1511,84 +1511,143 @@ window.syncAwardChips = function() {
 async function showFullMovieDetails(tmdbId, imdbId = null) {
     const modal = document.getElementById('movieDetailsModal');
     const content = document.getElementById('movieDetailsContent');
-    content.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Loading full details…</p>';
+    content.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:3rem 1rem;">Loading full details…</p>';
     openModal('movieDetailsModal');
 
     try {
         const movie = await getMovieDetails(tmdbId, 'credits,external_ids,release_dates');
 
-        const genres = movie.genres?.map(g => g.name).join(', ') || 'N/A';
+        const genresArr = movie.genres?.map(g => g.name) || [];
         const director = movie.credits?.crew?.find(p => p.job === 'Director')?.name || 'N/A';
         const runtime = movie.runtime ? `${movie.runtime} min` : 'N/A';
         const poster = movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : '';
+        const backdrop = movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : (movie.poster_path ? `https://image.tmdb.org/t/p/w1280${movie.poster_path}` : '');
         const releaseYear = movie.release_date ? movie.release_date.split('-')[0] : 'N/A';
         const language = movie.original_language?.toUpperCase() || 'N/A';
         const countries = movie.production_countries?.map(c => c.name).join(', ') || 'N/A';
-        const budget = movie.budget > 0 ? `$${(movie.budget / 1_000_000).toFixed(0)}M` : 'N/A';
-        const revenue = movie.revenue > 0 ? `$${(movie.revenue / 1_000_000).toFixed(0)}M` : 'N/A';
-        const cast = movie.credits?.cast?.slice(0, 10).map(a => a.name).join(', ') || 'N/A';
+        const budget = movie.budget > 0 ? `$${(movie.budget / 1_000_000).toFixed(0)}M` : '—';
+        const revenue = movie.revenue > 0 ? `$${(movie.revenue / 1_000_000).toFixed(0)}M` : '—';
+        const castArr = (movie.credits?.cast || []).slice(0, 10);
+        const tagline = movie.tagline || '';
+        const voteAvg = movie.vote_average ? movie.vote_average.toFixed(1) : '—';
+        const voteCount = movie.vote_count || 0;
         const imdbActual = movie.imdb_id || imdbId;
         const tmdbLink = `https://www.themoviedb.org/movie/${tmdbId}`;
         const imdbLink = imdbActual ? `https://www.imdb.com/title/${imdbActual}` : '#';
 
+        const heroStyle = backdrop ? `background-image: url('${escapeAttr(backdrop)}');` : '';
+        const genrePills = genresArr.map(g => `<span class="md-genre-pill">${escapeHtml(g)}</span>`).join('');
+        const castCards = castArr.map(actor => {
+            const photo = actor.profile_path
+                ? `<img class="md-cast-photo" src="https://image.tmdb.org/t/p/w185${escapeAttr(actor.profile_path)}" alt="${escapeAttr(actor.name)}" loading="lazy">`
+                : `<div class="md-cast-photo placeholder">👤</div>`;
+            return `
+                <div class="md-cast-card">
+                    ${photo}
+                    <span class="md-cast-name">${escapeHtml(actor.name)}</span>
+                    ${actor.character ? `<span class="md-cast-char">${escapeHtml(actor.character)}</span>` : ''}
+                </div>
+            `;
+        }).join('');
+
         content.innerHTML = `
-            <h2 style="font-family:'Cinzel',serif; margin:0;">${escapeHtml(movie.title)} (${escapeHtml(releaseYear)})</h2>
-
-            <button class="btn-primary" id="addFromFullDetailsBtn" style="width:100%; padding:1rem; font-size:1.1rem; margin:15px 0;">
-                ➕ Add to Your List
-            </button>
-
-            ${poster ? `<img src="${escapeAttr(poster)}" alt="" style="width:150px; align-self:center; border-radius:12px; margin:10px 0;">` : ''}
-
-            ${movie.overview ? `
-            <div class="detail-section">
-                <h4>📖 Plot</h4>
-                <p style="line-height:1.55;">${escapeHtml(movie.overview)}</p>
-            </div>
-            ` : ''}
-
-            <div class="detail-section">
-                <h4>🎬 Core Info</h4>
-                <p><strong>Director:</strong> ${escapeHtml(director)}</p>
-                <p><strong>Genres:</strong> ${escapeHtml(genres)}</p>
-                <p><strong>Runtime:</strong> ${escapeHtml(runtime)}</p>
-                <p><strong>Language:</strong> ${escapeHtml(language)}</p>
-                <p><strong>Countries:</strong> ${escapeHtml(countries)}</p>
-                <p><strong>Budget:</strong> ${escapeHtml(budget)} | <strong>Revenue:</strong> ${escapeHtml(revenue)}</p>
+            <div class="md-hero" style="${heroStyle}">
+                <div class="md-hero-overlay">
+                    <p class="md-hero-year">${escapeHtml(releaseYear)}${runtime !== 'N/A' ? ` · ${escapeHtml(runtime)}` : ''}</p>
+                    <h2 class="md-hero-title">${escapeHtml(movie.title)}</h2>
+                    ${tagline ? `<p class="md-hero-tagline">${escapeHtml(tagline)}</p>` : ''}
+                </div>
             </div>
 
-            <div class="detail-section">
-                <h4>🌟 Cast</h4>
-                <p>${escapeHtml(cast)}</p>
+            <div class="md-body">
+                <aside class="md-poster-col">
+                    ${poster ? `<img class="md-poster" src="${escapeAttr(poster)}" alt="${escapeAttr(movie.title)}">` : '<div class="md-poster" style="display:flex;align-items:center;justify-content:center;color:var(--text-muted);">No poster</div>'}
+                    <div class="md-rating-card">
+                        <span class="md-rating-value">${escapeHtml(voteAvg)}<span class="md-rating-max">/10</span></span>
+                        <p class="md-rating-label">TMDB · ${escapeHtml(voteCount)} votes</p>
+                    </div>
+                </aside>
+
+                <div class="md-content-col">
+                    ${movie.overview ? `
+                        <div class="md-section">
+                            <h4 class="md-section-title">Synopsis</h4>
+                            <p class="md-plot">${escapeHtml(movie.overview)}</p>
+                        </div>
+                    ` : ''}
+
+                    ${genrePills ? `
+                        <div class="md-section">
+                            <h4 class="md-section-title">Genres</h4>
+                            <div class="md-genre-row">${genrePills}</div>
+                        </div>
+                    ` : ''}
+
+                    <div class="md-section">
+                        <h4 class="md-section-title">Details</h4>
+                        <div class="md-meta-grid">
+                            <div class="md-meta">
+                                <span class="md-meta-label">Director</span>
+                                <span class="md-meta-value" title="${escapeAttr(director)}">${escapeHtml(director)}</span>
+                            </div>
+                            <div class="md-meta">
+                                <span class="md-meta-label">Language</span>
+                                <span class="md-meta-value">${escapeHtml(language)}</span>
+                            </div>
+                            <div class="md-meta">
+                                <span class="md-meta-label">Country</span>
+                                <span class="md-meta-value" title="${escapeAttr(countries)}">${escapeHtml(countries)}</span>
+                            </div>
+                            <div class="md-meta">
+                                <span class="md-meta-label">Budget · Revenue</span>
+                                <span class="md-meta-value">${escapeHtml(budget)} · ${escapeHtml(revenue)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${castArr.length ? `
+                        <div class="md-section">
+                            <h4 class="md-section-title">Cast</h4>
+                            <div class="md-cast-row">${castCards}</div>
+                        </div>
+                    ` : ''}
+                </div>
             </div>
 
-            <div class="detail-section">
-                <h4>📊 Ratings</h4>
-                <p><strong>TMDB Average:</strong> ⭐ ${escapeHtml(movie.vote_average?.toFixed(1))} (${escapeHtml(movie.vote_count)} votes)</p>
-            </div>
-
-            <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;">
-                <!-- NUOVO PULSANTE FILMGRAB -->
-                <button class="btn-primary" id="openFilmGrabBtn" style="background:#1e293b; margin-top:10px;">📸 Stills on FilmGrab</button>
-                <a href="${escapeAttr(tmdbLink)}" target="_blank" rel="noopener noreferrer" class="external-link-btn">🌐 View on TMDB</a>
-                ${imdbLink !== '#' ? `<a href="${escapeAttr(imdbLink)}" target="_blank" rel="noopener noreferrer" class="external-link-btn">🎬 View on IMDb</a>` : ''}
+            <div class="md-actions">
+                <button class="btn-primary md-add-btn" id="addFromFullDetailsBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span>Add to Your List</span>
+                </button>
+                <button class="external-link-btn" id="openFilmGrabBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    <span>FilmGrab Stills</span>
+                </button>
+                <a href="${escapeAttr(tmdbLink)}" target="_blank" rel="noopener noreferrer" class="external-link-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <span>TMDB</span>
+                </a>
+                ${imdbLink !== '#' ? `
+                    <a href="${escapeAttr(imdbLink)}" target="_blank" rel="noopener noreferrer" class="external-link-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                        <span>IMDb</span>
+                    </a>
+                ` : ''}
             </div>
         `;
 
-        // Listener per il pulsante “Add to Your List”
         document.getElementById('addFromFullDetailsBtn').addEventListener('click', async () => {
             await fetchMovieDetailsAndSelect(tmdbId);
             closeModal('movieDetailsModal', true);
             openModal('modal');
         });
 
-        // Listener per il pulsante FilmGrab
         document.getElementById('openFilmGrabBtn')?.addEventListener('click', () => {
             apriFilmGrab({ title: movie.title, tmdbId: tmdbId });
         });
 
     } catch (err) {
-        content.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Failed to load details.</p>';
+        content.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:3rem 1rem;">Failed to load details.</p>';
     }
 }
 
