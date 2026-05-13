@@ -5,13 +5,36 @@
  * (Firebase Auth) viene verificata server-side.
  */
 
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-functions.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-functions.js";
+import { auth, functions } from './firebase.js';
 
-const functions = getFunctions();
 const tmdbProxyFn = httpsCallable(functions, 'tmdbProxy');
+
+/**
+ * Aspetta che Firebase Auth abbia risolto lo stato corrente prima di chiamare
+ * la Cloud Function. Senza questa attesa, una chiamata partita prima del
+ * primo onAuthStateChanged arriva con context.auth === null e il proxy
+ * risponde "Utente non autenticato".
+ */
+let authReadyPromise = null;
+function waitForAuthReady() {
+  if (authReadyPromise) return authReadyPromise;
+  authReadyPromise = new Promise(resolve => {
+    if (auth.currentUser) { resolve(auth.currentUser); return; }
+    const unsub = auth.onAuthStateChanged(user => {
+      unsub();
+      resolve(user);
+    });
+  });
+  return authReadyPromise;
+}
 
 async function tmdbFetch(path, params = {}) {
   try {
+    const user = await waitForAuthReady();
+    if (!user) {
+      throw new Error('Devi essere autenticato per usare TMDB');
+    }
     const result = await tmdbProxyFn({ path, params });
     return result.data;
   } catch (err) {

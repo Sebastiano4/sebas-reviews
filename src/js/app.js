@@ -1,11 +1,11 @@
 // --- FIREBASE CONNECTION ---
 // 1. Import the initialized connection from your new file
-import { auth, db, provider } from './firebase.js';
+import { auth, db, provider, functions } from './firebase.js';
 
 // 2. Import the active Firebase functions needed to run logic in this file
 import { signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import { collection, addDoc, getDocs, getDoc, query, doc, deleteDoc, updateDoc, setDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-functions.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-functions.js";
 import {
   searchMovies,
   searchMoviesWithYear,
@@ -1587,7 +1587,6 @@ Domanda dell'utente: "${userQuery}"
 
 Rispondi in italiano, in modo simpatico e breve. Usa le informazioni sui generi, registi e voti per dare un consiglio mirato. Se la domanda non è chiara, chiedi maggiori dettagli.`;
 
-        const functions = getFunctions();
         const analyzeReview = httpsCallable(functions, 'analyzeReview');
         const result = await analyzeReview({ reviewText: prompt, action: 'chat' });
         return result.data?.result || 'Scusa, ho avuto un problema tecnico. Riprova tra poco.';
