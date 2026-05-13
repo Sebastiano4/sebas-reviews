@@ -262,6 +262,23 @@ header .profile-btn:hover {
     accent-color: var(--accent);
 }
 
+/* Native <option> popup: force readable dark background + light text.
+   Browsers render the popup with OS chrome; without explicit colors the
+   translucent <select> background bleeds through and items look invisible
+   until hovered. */
+.filter-select option,
+.modern-input option,
+select.filter-select option {
+    background-color: #16181e;
+    color: var(--text-main);
+}
+
+.filter-select option:checked,
+select.filter-select option:checked {
+    background-color: #1f232c;
+    color: var(--text-main);
+}
+
 /* Reset button blends into the row */
 #resetFiltersBtn.btn-primary,
 #resetExploreFiltersBtn.btn-primary {

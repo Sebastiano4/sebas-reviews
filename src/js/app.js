@@ -610,7 +610,8 @@ async function getFilteredMovies(offset, limit){
     if (isWatchlistMode && sort === 'newest_added') {
         // Nella watchlist usa l'ordine manuale (drag & drop)
         movies.sort((a,b) => (a.order || 0) - (b.order || 0));
-    } else if(sort === 'highest_rated') movies.sort((a,b)=>b.rating - a.rating);
+    } else if(sort === 'highest_rated') movies.sort((a,b)=>(b.rating||0) - (a.rating||0));
+    else if(sort === 'lowest_rated') movies.sort((a,b)=>(a.rating||0) - (b.rating||0));
     else if(sort === 'year_new') movies.sort((a,b)=>parseInt(b.year)-parseInt(a.year));
     else if(sort === 'year_old') movies.sort((a,b)=>parseInt(a.year)-parseInt(b.year));
     else movies.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
