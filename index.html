@@ -264,7 +264,7 @@
                 <span class="vault-tab-indicator" aria-hidden="true"></span>
             </nav>
 
-            <div id="vaultStatsContent" class="vault-panels">
+            <div id="vaultStatsContent" class="vault-panels" data-active-section="overview">
 
                 <!-- OVERVIEW TAB -->
                 <section class="vault-panel active" data-panel="overview" role="tabpanel">
@@ -290,7 +290,27 @@
                         <span class="vault-pill"><strong>σ</strong> <span id="statStdDev">0.0</span></span>
                         <span class="vault-pill"><strong>Reviews</strong> <span id="statReviewsCount">0</span></span>
                     </div>
-                    <div class="vault-chart-wrap"><canvas id="ratingChart" height="120"></canvas></div>
+                    <div class="vault-chart-wrap">
+                        <canvas id="ratingChart" height="120"></canvas>
+                        <div class="vault-chart-legend">
+                            <span><span class="dot mean"></span>Media</span>
+                            <span><span class="dot median"></span>Mediana</span>
+                        </div>
+                    </div>
+
+                    <div id="vaultGoldenDecadeCard" class="vault-decade-card" hidden>
+                        <span class="vault-decade-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+                        </span>
+                        <div>
+                            <div class="vault-decade-label">Il tuo decennio d'oro</div>
+                            <div id="vaultDecadeValue" class="vault-decade-value">—</div>
+                        </div>
+                        <div class="vault-decade-meta">
+                            <strong id="vaultDecadeAvg">—</strong>
+                            <span id="vaultDecadeCount">— film</span>
+                        </div>
+                    </div>
 
                     <div class="vault-section">
                         <div class="vault-section-head">
@@ -338,6 +358,16 @@
                             <svg class="vault-action-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                         </button>
                     </div>
+
+                    <div class="vault-section">
+                        <div class="vault-section-head">
+                            <h3 class="vault-section-title">Recurring Companions</h3>
+                            <p class="vault-section-sub">Le coppie regista–attore che torni a guardare di più</p>
+                        </div>
+                        <div id="vaultCompanionsList" class="vault-companions-list">
+                            <p style="color: var(--text-muted); margin: 0; font-size: 0.82rem;">Caricamento…</p>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- GENRES TAB -->
@@ -362,7 +392,18 @@
                             <h3 class="vault-section-title">World Vault</h3>
                             <p class="vault-section-sub" id="vaultMapSummary">Loading map…</p>
                         </div>
+
+                        <div id="vaultMapPodium" class="vault-podium" hidden></div>
+
                         <div id="vaultMapContainer"></div>
+
+                        <div class="vault-map-legend">
+                            <span class="vault-legend-item"><span class="vault-legend-swatch" data-tier="5plus"></span>5+ film</span>
+                            <span class="vault-legend-item"><span class="vault-legend-swatch" data-tier="3to4"></span>3–4 film</span>
+                            <span class="vault-legend-item"><span class="vault-legend-swatch" data-tier="1to2"></span>1–2 film</span>
+                            <span class="vault-legend-item"><span class="vault-legend-swatch" data-tier="none"></span>nessun film</span>
+                        </div>
+
                         <div id="vaultMapCountryInfo" class="vault-map-country-info">Click a country to see films from your Vault.</div>
                     </div>
                 </section>
@@ -451,9 +492,15 @@
     <div id="genreChartModal" class="modal">
         <div class="modal-content ranking-content" style="max-width: 800px;">
             <span class="close-genre-chart">&times;</span>
-            <h2 style="font-family: 'Cinzel', serif; color: var(--accent);">📊 Media voti per genere</h2>
-            <div style="margin: 20px 0;"><canvas id="genreRatingChart" height="100"></canvas></div>
+            <h2 style="font-family: 'Cinzel', serif; color: var(--vault-genres);">📊 Generi: volume vs voto</h2>
+            <p style="margin: 4px 0 14px; color: var(--text-muted); font-size: 0.82rem;">Asse X: numero film visti · Asse Y: media voto · Dimensione bolla: ore totali</p>
+            <div style="margin: 12px 0 24px; height: 360px;"><canvas id="genreRatingChart"></canvas></div>
             <div id="genreChartList" class="ranking-grid"></div>
+            <div id="vaultUnderrepresented" class="vault-underrepresented" hidden>
+                <h4>Esplora di più</h4>
+                <p class="subtitle">Generi che hai visto poco — magari c'è qualcosa da scoprire</p>
+                <div id="vaultUnderrepGrid" class="vault-underrep-grid"></div>
+            </div>
         </div>
     </div>
 
@@ -461,8 +508,13 @@
     <div id="eloRankingModal" class="modal">
         <div class="modal-content ranking-content" style="max-width: 900px;">
             <span class="close-elo-ranking">&times;</span>
-            <h2 style="font-family: 'Cinzel', serif; color: var(--accent);">🏆 Elo Ranking</h2>
+            <h2 style="font-family: 'Cinzel', serif; color: var(--vault-elo);">🏆 Elo Ranking</h2>
             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">I tuoi film ordinati per punteggio Elo (più alto = migliore). Clicca su un film per vedere i dettagli.</p>
+
+            <div id="eloTierDistribution" class="elo-tier-distribution" hidden></div>
+
+            <div id="eloTierChips" class="elo-tier-chips" hidden></div>
+
             <div class="elo-controls" style="margin-bottom: 1rem; display:flex; flex-wrap:wrap; gap:0.75rem; align-items:center; justify-content:space-between;">
                 <div style="flex:1; min-width:220px;">
                     <input id="eloSearchInput" type="search" placeholder="Cerca titolo..." aria-label="Cerca film Elo" class="elo-search-bar">

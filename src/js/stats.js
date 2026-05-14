@@ -9,6 +9,8 @@ let vaultMap = null;
 let vaultMapLayer = null;
 let vaultGeoJson = null;
 let countryFilmMapping = {};
+let countryAvgRating = {};
+let vaultWatchedCount = 0;
 let vaultMaxCountryCount = 1;
 
 export function setStatsDependencies(deps) {
@@ -166,6 +168,9 @@ export async function updateAdvancedStats() {
         ? topActors.map(a => `<div class="stat-badge">${escapeHtml(a.name)} · ⭐ ${a.avg.toFixed(1)} (${a.count} film)</div>`).join('')
         : '<p style="color: var(--text-muted); margin: 0;">Guarda e valuta almeno 3 film per attore per vederli qui.</p>';
 
+    updateGoldenDecade(watched);
+    updateRecurringCompanions(watched);
+
     if (ratingChartInstance) {
         ratingChartInstance.destroy();
     }
@@ -176,73 +181,219 @@ export async function updateAdvancedStats() {
         const idx = Math.round((m.rating || 0) * 2);
         if (idx >= 0 && idx < 21) counts[idx]++;
     });
+    const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+    const median = getMedian(ratings);
+    const meanIdx = Math.round(mean * 2);
+    const medianIdx = Math.round(median * 2);
     const ctx = document.getElementById('ratingChart');
     if (ctx) {
         await ensureChartJs();
+        const barColors = counts.map((_, i) => {
+            if (i === meanIdx) return 'rgba(212, 175, 55, 0.95)';
+            if (i === medianIdx) return 'rgba(180, 106, 74, 0.85)';
+            return 'rgba(255, 255, 255, 0.18)';
+        });
+        const barBorders = counts.map((_, i) => {
+            if (i === meanIdx) return '#d4af37';
+            if (i === medianIdx) return '#b46a4a';
+            return 'rgba(255,255,255,0.22)';
+        });
         ratingChartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels,
                 datasets: [{
                     data: counts,
-                    backgroundColor: 'rgba(196,48,43,0.7)'
+                    backgroundColor: barColors,
+                    borderColor: barBorders,
+                    borderWidth: 1,
+                    borderRadius: 3
                 }]
             },
             options: {
-                plugins: { legend: { display: false } },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: (item) => {
+                                if (item.dataIndex === meanIdx) return `↑ Media: ${mean.toFixed(2)}`;
+                                if (item.dataIndex === medianIdx) return `↑ Mediana: ${median.toFixed(1)}`;
+                                return '';
+                            }
+                        }
+                    }
+                },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: '#2d3748' }, ticks: { color: '#fff' } },
-                    x: { ticks: { color: '#fff' } }
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.6)' } },
+                    x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', maxRotation: 0 } }
                 }
             }
         });
     }
 }
 
+function updateGoldenDecade(watched) {
+    const card = document.getElementById('vaultGoldenDecadeCard');
+    if (!card) return;
+
+    const decadeMap = new Map();
+    watched.forEach(m => {
+        const year = parseInt(m.year, 10);
+        if (!Number.isFinite(year) || m.rating == null || isNaN(m.rating)) return;
+        const decade = Math.floor(year / 10) * 10;
+        if (!decadeMap.has(decade)) decadeMap.set(decade, { sum: 0, count: 0 });
+        const d = decadeMap.get(decade);
+        d.sum += m.rating;
+        d.count++;
+    });
+
+    const qualified = Array.from(decadeMap.entries())
+        .filter(([_, d]) => d.count >= 3)
+        .map(([dec, d]) => ({ dec, avg: d.sum / d.count, count: d.count }))
+        .sort((a, b) => b.avg - a.avg);
+
+    if (!qualified.length) {
+        card.hidden = true;
+        return;
+    }
+    const top = qualified[0];
+    card.hidden = false;
+    document.getElementById('vaultDecadeValue').textContent = `Anni ${top.dec}`;
+    document.getElementById('vaultDecadeAvg').textContent = `⭐ ${top.avg.toFixed(2)}`;
+    document.getElementById('vaultDecadeCount').textContent = `${top.count} film`;
+}
+
+function updateRecurringCompanions(watched) {
+    const container = document.getElementById('vaultCompanionsList');
+    if (!container) return;
+
+    const pairs = new Map();
+    watched.forEach(m => {
+        if (!m.director || m.director === 'Unknown') return;
+        if (!Array.isArray(m.cast)) return;
+        m.cast.slice(0, 8).forEach(actor => {
+            if (!actor) return;
+            const key = `${m.director}|||${actor}`;
+            if (!pairs.has(key)) pairs.set(key, { director: m.director, actor, count: 0, sum: 0, rated: 0 });
+            const p = pairs.get(key);
+            p.count++;
+            if (m.rating != null && !isNaN(m.rating)) { p.sum += m.rating; p.rated++; }
+        });
+    });
+
+    const top = Array.from(pairs.values())
+        .filter(p => p.count >= 2)
+        .sort((a, b) => (b.count - a.count) || ((b.rated ? b.sum / b.rated : 0) - (a.rated ? a.sum / a.rated : 0)))
+        .slice(0, 5);
+
+    if (!top.length) {
+        container.innerHTML = '<p style="color: var(--text-muted); margin: 0; font-size: 0.82rem;">Servono almeno 2 film con la stessa coppia regista–attore.</p>';
+        return;
+    }
+
+    container.innerHTML = top.map(p => {
+        const avg = p.rated ? (p.sum / p.rated).toFixed(1) : '—';
+        return `
+            <div class="vault-companion-row">
+                <div class="vault-companion-pair">${escapeHtml(p.director)}<span class="sep">×</span>${escapeHtml(p.actor)}</div>
+                <div class="vault-companion-stat">${p.count} film<small>⭐ ${avg}</small></div>
+            </div>
+        `;
+    }).join('');
+}
+
+const ISO2_TO_ISO3 = {
+    AF:'AFG',AL:'ALB',DZ:'DZA',AS:'ASM',AD:'AND',AO:'AGO',AI:'AIA',AQ:'ATA',AG:'ATG',AR:'ARG',AM:'ARM',AW:'ABW',AU:'AUS',AT:'AUT',AZ:'AZE',
+    BS:'BHS',BH:'BHR',BD:'BGD',BB:'BRB',BY:'BLR',BE:'BEL',BZ:'BLZ',BJ:'BEN',BM:'BMU',BT:'BTN',BO:'BOL',BA:'BIH',BW:'BWA',BR:'BRA',IO:'IOT',
+    VG:'VGB',BN:'BRN',BG:'BGR',BF:'BFA',BI:'BDI',KH:'KHM',CM:'CMR',CA:'CAN',CV:'CPV',KY:'CYM',CF:'CAF',TD:'TCD',CL:'CHL',CN:'CHN',CX:'CXR',
+    CC:'CCK',CO:'COL',KM:'COM',CK:'COK',CR:'CRI',HR:'HRV',CU:'CUB',CW:'CUW',CY:'CYP',CZ:'CZE',CD:'COD',DK:'DNK',DJ:'DJI',DM:'DMA',DO:'DOM',
+    EC:'ECU',EG:'EGY',SV:'SLV',GQ:'GNQ',ER:'ERI',EE:'EST',ET:'ETH',FK:'FLK',FO:'FRO',FJ:'FJI',FI:'FIN',FR:'FRA',PF:'PYF',GA:'GAB',GM:'GMB',
+    GE:'GEO',DE:'DEU',GH:'GHA',GI:'GIB',GR:'GRC',GL:'GRL',GD:'GRD',GU:'GUM',GT:'GTM',GG:'GGY',GN:'GIN',GW:'GNB',GY:'GUY',HT:'HTI',HN:'HND',
+    HK:'HKG',HU:'HUN',IS:'ISL',IN:'IND',ID:'IDN',IR:'IRN',IQ:'IRQ',IE:'IRL',IM:'IMN',IL:'ISR',IT:'ITA',CI:'CIV',JM:'JAM',JP:'JPN',JE:'JEY',
+    JO:'JOR',KZ:'KAZ',KE:'KEN',KI:'KIR',XK:'KOS',KW:'KWT',KG:'KGZ',LA:'LAO',LV:'LVA',LB:'LBN',LS:'LSO',LR:'LBR',LY:'LBY',LI:'LIE',LT:'LTU',
+    LU:'LUX',MO:'MAC',MK:'MKD',MG:'MDG',MW:'MWI',MY:'MYS',MV:'MDV',ML:'MLI',MT:'MLT',MH:'MHL',MR:'MRT',MU:'MUS',YT:'MYT',MX:'MEX',FM:'FSM',
+    MD:'MDA',MC:'MCO',MN:'MNG',ME:'MNE',MS:'MSR',MA:'MAR',MZ:'MOZ',MM:'MMR',NA:'NAM',NR:'NRU',NP:'NPL',NL:'NLD',NC:'NCL',NZ:'NZL',NI:'NIC',
+    NE:'NER',NG:'NGA',NU:'NIU',KP:'PRK',MP:'MNP',NO:'NOR',OM:'OMN',PK:'PAK',PW:'PLW',PS:'PSE',PA:'PAN',PG:'PNG',PY:'PRY',PE:'PER',PH:'PHL',
+    PN:'PCN',PL:'POL',PT:'PRT',PR:'PRI',QA:'QAT',CG:'COG',RE:'REU',RO:'ROU',RU:'RUS',RW:'RWA',BL:'BLM',SH:'SHN',KN:'KNA',LC:'LCA',MF:'MAF',
+    PM:'SPM',VC:'VCT',WS:'WSM',SM:'SMR',ST:'STP',SA:'SAU',SN:'SEN',RS:'SRB',SC:'SYC',SL:'SLE',SG:'SGP',SX:'SXM',SK:'SVK',SI:'SVN',SB:'SLB',
+    SO:'SOM',ZA:'ZAF',KR:'KOR',SS:'SSD',ES:'ESP',LK:'LKA',SD:'SDN',SR:'SUR',SJ:'SJM',SZ:'SWZ',SE:'SWE',CH:'CHE',SY:'SYR',TW:'TWN',TJ:'TJK',
+    TZ:'TZA',TH:'THA',TL:'TLS',TG:'TGO',TK:'TKL',TO:'TON',TT:'TTO',TN:'TUN',TR:'TUR',TM:'TKM',TC:'TCA',TV:'TUV',VI:'VIR',UG:'UGA',UA:'UKR',
+    AE:'ARE',GB:'GBR',US:'USA',UY:'URY',UZ:'UZB',VU:'VUT',VA:'VAT',VE:'VEN',VN:'VNM',WF:'WLF',EH:'ESH',YE:'YEM',ZM:'ZMB',ZW:'ZWE'
+};
+
+function normalizeCountryCode(raw) {
+    if (typeof raw !== 'string') return null;
+    const code = raw.trim().toUpperCase();
+    if (code.length === 3) return code;
+    if (code.length === 2) return ISO2_TO_ISO3[code] || null;
+    return null;
+}
+
 function getCountryCodeFromFeature(feature) {
     const props = feature.properties || {};
-    const code = props.iso_a2 || props.ISO_A2 || props.iso2 || props.iso || props.ISO || props.ADM0_A3 || props.ISO_A3 || props.id;
-    return typeof code === 'string' ? code.toUpperCase() : null;
+    const raw = props.iso_a3 || props.ISO_A3 || props.ADM0_A3 || props.iso_a2 || props.ISO_A2
+        || props.iso2 || props.iso || props.ISO || props.id || feature.id;
+    return normalizeCountryCode(raw);
 }
 
 function getMovieCountryCode(country) {
     if (!country) return null;
-    const code = country.iso_3166_1 || country.iso || country.code || country.ISO || country.ISO_A2;
-    return typeof code === 'string' ? code.toUpperCase() : null;
+    const raw = country.iso_3166_1 || country.iso || country.code || country.ISO || country.ISO_A2 || country.ISO_A3;
+    return normalizeCountryCode(raw);
 }
 
 function getFillColorForCountry(count) {
-    if (count >= 5) return '#fde047';
-    if (count >= 3) return '#60a5fa';
-    if (count >= 1) return '#3b82f6';
-    return '#334155';
+    if (count >= 5) return '#d4af37';   // gold — top tier
+    if (count >= 3) return '#5fb3b3';   // bright teal
+    if (count >= 1) return '#3d8a8a';   // map accent
+    return '#1a2632';                    // muted slate
 }
 
-async function ensureProductionCountriesForMovies(movies) {
-    if (!saveMovieProductionCountries) return;
+async function ensureProductionCountriesForMovies(movies, onProgress) {
     const missingMovies = movies.filter(m => (!Array.isArray(m.production_countries) || m.production_countries.length === 0) && m.tmdbId);
-    if (!missingMovies.length) return;
+    const skippedNoTmdb = movies.filter(m => (!Array.isArray(m.production_countries) || m.production_countries.length === 0) && !m.tmdbId).length;
 
-    for (const movie of missingMovies) {
-        try {
-            const details = await getMovieDetails(movie.tmdbId);
-            const countries = Array.isArray(details.production_countries) ? details.production_countries : [];
-            if (countries.length) {
-                movie.production_countries = countries;
-                await saveMovieProductionCountries(movie.id, countries);
+    console.info(`[Vault Map] Films totali: ${movies.length} · con paesi già salvati: ${movies.length - missingMovies.length - skippedNoTmdb} · da fetchare (TMDB): ${missingMovies.length} · senza tmdbId: ${skippedNoTmdb}`);
+    if (skippedNoTmdb > 0) {
+        console.warn(`[Vault Map] ${skippedNoTmdb} film non hanno tmdbId — non possono essere mappati. Riaprili una volta per associarli a TMDB.`);
+    }
+
+    if (!missingMovies.length) {
+        onProgress?.(0, 0);
+        return;
+    }
+
+    const BATCH = 6;
+    let done = 0;
+    onProgress?.(0, missingMovies.length);
+
+    for (let i = 0; i < missingMovies.length; i += BATCH) {
+        const slice = missingMovies.slice(i, i + BATCH);
+        await Promise.all(slice.map(async (movie) => {
+            try {
+                const details = await getMovieDetails(movie.tmdbId);
+                const countries = Array.isArray(details.production_countries) ? details.production_countries : [];
+                if (countries.length) {
+                    movie.production_countries = countries;
+                    if (saveMovieProductionCountries) {
+                        saveMovieProductionCountries(movie.id, countries).catch(() => {});
+                    }
+                } else {
+                    movie.production_countries = [];
+                }
+            } catch (err) {
+                console.warn('[Vault Map] fetch fallito per', movie.title, err);
+            } finally {
+                done++;
+                onProgress?.(done, missingMovies.length);
             }
-        } catch (err) {
-            console.warn('Unable to fetch production countries for', movie.title, err);
-        }
+        }));
     }
 }
 
-async function buildVaultMovieCountryMap() {
-    const movies = await fetchAllMovies();
-    const watched = movies.filter(m => !m.isWatchlist);
-    await ensureProductionCountriesForMovies(watched);
-
+function buildMappingFromWatched(watched) {
     const mapping = {};
+    const ratings = {};
     watched.forEach(m => {
         const countries = Array.isArray(m.production_countries) ? m.production_countries : [];
         countries.forEach(country => {
@@ -252,18 +403,39 @@ async function buildVaultMovieCountryMap() {
             if (!mapping[code].includes(m.title)) {
                 mapping[code].push(m.title);
             }
+            if (m.rating != null && !isNaN(m.rating)) {
+                if (!ratings[code]) ratings[code] = { sum: 0, count: 0 };
+                ratings[code].sum += m.rating;
+                ratings[code].count++;
+            }
         });
     });
-
+    countryAvgRating = {};
+    Object.entries(ratings).forEach(([code, r]) => {
+        countryAvgRating[code] = r.count ? r.sum / r.count : null;
+    });
     return mapping;
 }
 
-function updateVaultMapSummary() {
+async function buildVaultMovieCountryMap(onProgress) {
+    const movies = await fetchAllMovies();
+    const watched = movies.filter(m => !m.isWatchlist);
+    vaultWatchedCount = watched.length;
+    await ensureProductionCountriesForMovies(watched, onProgress);
+    return buildMappingFromWatched(watched);
+}
+
+function updateVaultMapSummary(progress) {
     const summary = document.getElementById('vaultMapSummary');
     if (!summary) return;
+    if (progress && progress.total > 0 && progress.done < progress.total) {
+        summary.innerText = `Caricamento dati TMDB… ${progress.done}/${progress.total}`;
+        return;
+    }
     const countryCount = Object.keys(countryFilmMapping).length;
     const filmCount = Object.values(countryFilmMapping).reduce((sum, list) => sum + list.length, 0);
-    summary.innerText = `${countryCount} paesi mappati · ${filmCount} film visti`;
+    const diversity = vaultWatchedCount > 0 ? ((countryCount / vaultWatchedCount) * 100).toFixed(0) : 0;
+    summary.innerText = `${countryCount} paesi · ${filmCount} film · diversità ${diversity}%`;
 }
 
 function showVaultMapCountryInfo(feature) {
@@ -272,10 +444,17 @@ function showVaultMapCountryInfo(feature) {
     const code = getCountryCodeFromFeature(feature);
     const titles = (code && countryFilmMapping[code]) ? countryFilmMapping[code] : [];
     const name = feature.properties?.name || 'Paese';
+    const avg = code ? countryAvgRating[code] : null;
 
     if (titles.length) {
+        const avgChip = avg != null
+            ? `<span class="vault-map-avg-chip">⭐ ${avg.toFixed(2)}</span>`
+            : '';
         info.innerHTML = `
-            <h3>${escapeHtml(name)}</h3>
+            <div class="vault-map-info-head">
+                <h3>${escapeHtml(name)}</h3>
+                ${avgChip}
+            </div>
             <p style="margin:0 0 10px;">Hai visto ${titles.length} film di questo paese:</p>
             <ul>${titles.map(title => `<li>${escapeHtml(title)}</li>`).join('')}</ul>
         `;
@@ -329,9 +508,12 @@ async function buildVaultMapLayer() {
 let mapInitialized = false;
 
 export async function openVaultMapView() {
-    countryFilmMapping = await buildVaultMovieCountryMap();
+    countryFilmMapping = await buildVaultMovieCountryMap((done, total) => {
+        updateVaultMapSummary({ done, total });
+    });
     vaultMaxCountryCount = Math.max(1, ...Object.values(countryFilmMapping).map(arr => arr.length));
     updateVaultMapSummary();
+    updateVaultMapPodium();
 
     if (!vaultMap) {
         await ensureLeaflet();
@@ -351,6 +533,51 @@ export async function openVaultMapView() {
     await buildVaultMapLayer();
     vaultMap.invalidateSize();
     mapInitialized = true;
+}
+
+const ISO3_TO_NAME = {
+    USA:'Stati Uniti', GBR:'Regno Unito', ITA:'Italia', FRA:'Francia', DEU:'Germania', ESP:'Spagna',
+    JPN:'Giappone', KOR:'Corea del Sud', CHN:'Cina', IND:'India', RUS:'Russia', CAN:'Canada',
+    AUS:'Australia', NZL:'Nuova Zelanda', BRA:'Brasile', MEX:'Messico', ARG:'Argentina', CHL:'Cile',
+    SWE:'Svezia', NOR:'Norvegia', DNK:'Danimarca', FIN:'Finlandia', NLD:'Paesi Bassi', BEL:'Belgio',
+    CHE:'Svizzera', AUT:'Austria', POL:'Polonia', CZE:'Cechia', HUN:'Ungheria', GRC:'Grecia',
+    PRT:'Portogallo', IRL:'Irlanda', ISL:'Islanda', TUR:'Turchia', IRN:'Iran', ISR:'Israele',
+    EGY:'Egitto', ZAF:'Sudafrica', NGA:'Nigeria', KEN:'Kenya', MAR:'Marocco', THA:'Thailandia',
+    VNM:'Vietnam', PHL:'Filippine', IDN:'Indonesia', MYS:'Malesia', SGP:'Singapore', TWN:'Taiwan',
+    HKG:'Hong Kong', UKR:'Ucraina', ROU:'Romania', SRB:'Serbia', HRV:'Croazia', BGR:'Bulgaria'
+};
+
+function getCountryDisplayName(code) {
+    return ISO3_TO_NAME[code] || code;
+}
+
+function updateVaultMapPodium() {
+    const podium = document.getElementById('vaultMapPodium');
+    if (!podium) return;
+
+    const ranked = Object.entries(countryFilmMapping)
+        .map(([code, films]) => ({ code, count: films.length, avg: countryAvgRating[code] }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3);
+
+    if (!ranked.length) {
+        podium.hidden = true;
+        return;
+    }
+    podium.hidden = false;
+    podium.innerHTML = ranked.map((c, idx) => {
+        const rank = idx + 1;
+        const avgStr = c.avg != null ? `⭐ ${c.avg.toFixed(1)}` : '';
+        return `
+            <div class="vault-podium-card" data-rank="${rank}">
+                <span class="vault-podium-rank">${rank}</span>
+                <div class="vault-podium-info">
+                    <div class="vault-podium-name">${escapeHtml(getCountryDisplayName(c.code))}</div>
+                    <div class="vault-podium-meta">${c.count} film${avgStr ? ' · ' + avgStr : ''}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 export function requestCloseVaultMapView() {
@@ -381,6 +608,9 @@ function activateVaultTab(tab) {
     const tabs = document.querySelectorAll('.vault-tab');
     const panels = document.querySelectorAll('.vault-panel');
     const target = tab.dataset.tab;
+
+    const panelsContainer = document.getElementById('vaultStatsContent');
+    if (panelsContainer) panelsContainer.dataset.activeSection = target;
 
     tabs.forEach(t => {
         const isActive = t === tab;
@@ -489,8 +719,8 @@ export async function buildDirectorsRanking() {
         ).join('');
 
         container.insertAdjacentHTML('beforeend', `
-      <div class="director-card">
-        <span class="rank-badge">${rank}</span>
+      <div class="director-card" data-rank="${rank}">
+        <span class="rank-badge" data-rank="${rank}">${rank}</span>
         ${avatarHTML}
         <div class="director-info">
           <p class="director-name">${escapeHtml(dir.name)}</p>
@@ -560,8 +790,8 @@ export async function buildActorsRanking() {
         ).join('');
 
         container.insertAdjacentHTML('beforeend', `
-            <div class="actor-card">
-                <span class="actor-rank-badge">${rank}</span>
+            <div class="actor-card" data-rank="${rank}">
+                <span class="actor-rank-badge" data-rank="${rank}">${rank}</span>
                 ${avatarHTML}
                 <div class="actor-info">
                     <p class="actor-name">${escapeHtml(actor.name)}</p>
@@ -592,57 +822,134 @@ export async function buildGenreChart() {
     const genreMap = new Map();
     watched.forEach(m => {
         const genres = (m.genres || '').split(', ');
+        const minutes = getRuntimeMinutes(m.runtime);
         genres.forEach(g => {
             if (!g) return;
-            if (!genreMap.has(g)) genreMap.set(g, { sum: 0, count: 0 });
+            if (!genreMap.has(g)) genreMap.set(g, { sum: 0, count: 0, mins: 0 });
             const data = genreMap.get(g);
             data.sum += m.rating;
             data.count++;
+            data.mins += minutes;
         });
     });
 
-    const genreList = Array.from(genreMap.entries())
-        .map(([name, data]) => ({ name, avg: data.sum / data.count, count: data.count }))
-        .filter(g => g.count >= 2)
-        .sort((a, b) => b.avg - a.avg);
+    const allGenres = Array.from(genreMap.entries())
+        .map(([name, data]) => ({ name, avg: data.sum / data.count, count: data.count, hours: data.mins / 60 }));
+
+    const genreList = allGenres.filter(g => g.count >= 2).sort((a, b) => b.avg - a.avg);
 
     const canvas = document.getElementById('genreRatingChart');
     if (genreChartInstance) genreChartInstance.destroy();
 
     await ensureChartJs();
+
+    const maxHours = Math.max(1, ...genreList.map(g => g.hours));
+    const accent = '#7a9b7a';
+    const bubbles = genreList.map(g => ({
+        x: g.count,
+        y: g.avg,
+        r: 6 + Math.sqrt(g.hours / maxHours) * 22,
+        label: g.name,
+        hours: g.hours
+    }));
+
     genreChartInstance = new Chart(canvas, {
-        type: 'bar',
+        type: 'bubble',
         data: {
-            labels: genreList.map(g => g.name),
             datasets: [{
-                label: 'Media voto',
-                data: genreList.map(g => g.avg.toFixed(1)),
-                backgroundColor: 'rgba(196,48,43,0.7)',
-                borderColor: '#c4302b',
-                borderWidth: 1
+                data: bubbles,
+                backgroundColor: 'rgba(122, 155, 122, 0.35)',
+                borderColor: accent,
+                borderWidth: 1.5,
+                hoverBackgroundColor: 'rgba(122, 155, 122, 0.6)'
             }]
         },
         options: {
-            indexAxis: 'y',
             responsive: true,
-            plugins: { legend: { display: false } },
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: (items) => items[0]?.raw?.label || '',
+                        label: (item) => {
+                            const b = item.raw;
+                            return [
+                                `Media voto: ${b.y.toFixed(2)}`,
+                                `Film visti: ${b.x}`,
+                                `Ore totali: ${Math.round(b.hours)}h`
+                            ];
+                        }
+                    }
+                }
+            },
             scales: {
-                x: { beginAtZero: true, max: 10, grid: { color: '#2d3748' }, ticks: { color: '#fff' } },
-                y: { ticks: { color: '#fff' } }
+                x: {
+                    title: { display: true, text: 'Film visti', color: 'rgba(255,255,255,0.5)' },
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: 'rgba(255,255,255,0.6)', precision: 0 }
+                },
+                y: {
+                    title: { display: true, text: 'Media voto', color: 'rgba(255,255,255,0.5)' },
+                    min: 0,
+                    max: 10,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: 'rgba(255,255,255,0.6)' }
+                }
             }
-        }
+        },
+        plugins: [{
+            id: 'bubbleLabels',
+            afterDatasetsDraw(chart) {
+                const { ctx } = chart;
+                const meta = chart.getDatasetMeta(0);
+                ctx.save();
+                ctx.font = '600 11px Inter, sans-serif';
+                ctx.fillStyle = 'rgba(245, 240, 232, 0.85)';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                meta.data.forEach((point, i) => {
+                    const b = bubbles[i];
+                    if (b.r >= 14) ctx.fillText(b.label, point.x, point.y);
+                });
+                ctx.restore();
+            }
+        }]
     });
 
     container.innerHTML = genreList.map(g => `
     <div class="genre-list-item">
       <span class="genre-name">${escapeHtml(g.name)}</span>
-      <span class="genre-stats">⭐ ${g.avg.toFixed(1)} (${g.count} film)</span>
+      <span class="genre-stats">⭐ ${g.avg.toFixed(1)} · ${g.count} film · ${Math.round(g.hours)}h</span>
     </div>
   `).join('');
 
     if (genreList.length === 0) {
         container.innerHTML = '<p style="text-align:center;">Aggiungi almeno 2 film per genere per vedere le statistiche.</p>';
     }
+
+    renderUnderrepresentedGenres(allGenres);
+}
+
+function renderUnderrepresentedGenres(allGenres) {
+    const section = document.getElementById('vaultUnderrepresented');
+    const grid = document.getElementById('vaultUnderrepGrid');
+    if (!section || !grid) return;
+
+    const under = allGenres
+        .filter(g => g.count === 1)
+        .sort((a, b) => b.avg - a.avg)
+        .slice(0, 8);
+
+    if (!under.length) {
+        section.hidden = true;
+        return;
+    }
+    section.hidden = false;
+    grid.innerHTML = under.map(g => `
+        <span class="vault-underrep-chip">${escapeHtml(g.name)}<small>⭐ ${g.avg.toFixed(1)}</small></span>
+    `).join('');
 }
 
 function getEloBadgeOptions() {
@@ -747,6 +1054,8 @@ export async function buildEloRanking() {
         }
 
         container.innerHTML = htmlItems.join('');
+        renderEloTierDistribution(ranking, totalMovies);
+        renderEloTierChips(ranking, totalMovies);
         container.querySelectorAll('.elo-movie-row[data-movie-id]').forEach(row => {
             const openReview = () => window.openReview(row.dataset.movieId);
             row.addEventListener('click', openReview);
@@ -834,6 +1143,84 @@ export async function buildEloRanking() {
         console.error('Error building Elo ranking:', error);
         container.innerHTML = '<p style="text-align:center; color:red;">Errore nel caricamento della classifica Elo.</p>';
     }
+}
+
+function getEloTierDescriptors() {
+    return [
+        { key: 'GOATS',                cls: 'elo-tier-legendary',    color: '#d4af37' },
+        { key: 'Absolute Masterpiece', cls: 'elo-tier-grandmaster',  color: '#c8c8d0' },
+        { key: 'The Very Top',         cls: 'elo-tier-master',       color: '#c87a3a' },
+        { key: 'Gas',                  cls: 'elo-tier-elite',        color: '#a04449' },
+        { key: 'Solid',                cls: 'elo-tier-veteran',      color: '#7a9b7a' },
+        { key: 'Alright',              cls: 'elo-tier-pro',          color: '#3d8a8a' },
+        { key: 'NCSP',                 cls: 'elo-tier-rookie',       color: '#5a6270' }
+    ];
+}
+
+function renderEloTierDistribution(ranking, totalMovies) {
+    const container = document.getElementById('eloTierDistribution');
+    if (!container) return;
+
+    const counts = {};
+    ranking.forEach((_, idx) => {
+        const tier = getEloTier(idx + 1, totalMovies);
+        counts[tier.label] = (counts[tier.label] || 0) + 1;
+    });
+
+    const descriptors = getEloTierDescriptors();
+    const total = ranking.length || 1;
+
+    container.hidden = false;
+    container.innerHTML = `
+        <div class="elo-dist-title">Distribuzione tier</div>
+        <div class="elo-dist-bar">
+            ${descriptors.map(d => {
+                const c = counts[d.key] || 0;
+                if (!c) return '';
+                const pct = (c / total) * 100;
+                return `<span class="elo-dist-segment" style="width:${pct.toFixed(2)}%; background:${d.color};" title="${d.key}: ${c} film (${pct.toFixed(0)}%)"></span>`;
+            }).join('')}
+        </div>
+        <div class="elo-dist-legend">
+            ${descriptors.map(d => {
+                const c = counts[d.key] || 0;
+                if (!c) return '';
+                return `<span class="elo-dist-legend-item"><span class="elo-dist-dot" style="background:${d.color}"></span>${d.key} · ${c}</span>`;
+            }).join('')}
+        </div>
+    `;
+}
+
+function renderEloTierChips(ranking, totalMovies) {
+    const container = document.getElementById('eloTierChips');
+    const select = document.getElementById('eloBadgeFilter');
+    if (!container || !select) return;
+
+    const counts = {};
+    ranking.forEach((_, idx) => {
+        const tier = getEloTier(idx + 1, totalMovies);
+        counts[tier.label] = (counts[tier.label] || 0) + 1;
+    });
+
+    const descriptors = getEloTierDescriptors();
+    container.hidden = false;
+    container.innerHTML = `
+        <button type="button" class="elo-tier-chip ${select.value === 'all' ? 'active' : ''}" data-tier-value="all">Tutti<small>${ranking.length}</small></button>
+        ${descriptors.map(d => {
+            const c = counts[d.key] || 0;
+            if (!c) return '';
+            const active = select.value === d.key ? 'active' : '';
+            return `<button type="button" class="elo-tier-chip ${active}" data-tier-value="${escapeAttr(d.key)}" style="--chip-accent:${d.color}">${escapeHtml(d.key)}<small>${c}</small></button>`;
+        }).join('')}
+    `;
+
+    container.querySelectorAll('.elo-tier-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            select.value = btn.dataset.tierValue;
+            container.querySelectorAll('.elo-tier-chip').forEach(b => b.classList.toggle('active', b === btn));
+            select.dispatchEvent(new Event('change'));
+        });
+    });
 }
 
 document.addEventListener('eloRankingUpdated', async (event) => {
