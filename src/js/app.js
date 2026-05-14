@@ -16,7 +16,8 @@ import {
   getGenreList,
   getMovieVideos,
   getFirstMovieByTitleYear,
-  getSimilarMovies
+  getSimilarMovies,
+  fetchImdbRating
 } from './tmdb.js';
 import {
   showSkeletonLoaders,
@@ -897,18 +898,38 @@ async function loadMoreMovies() {
         newMovies.forEach(m => {
             const card = document.createElement('div');
             card.className = 'movie-card';
+            const tmdbAvg = m.vote_average?.toFixed(1) || 'N/A';
+            const releaseYear = m.year || m.release_date?.split('-')[0] || '';
             card.innerHTML = `
                 <div class="poster-container">
                     <img src="${escapeAttr(m.poster)}" alt="" loading="lazy">
                 </div>
                 <div class="card-info">
                     <h3>${escapeHtml(m.title)}</h3>
-                    <p style="color:var(--accent); margin:0.5rem 0;">
-                        ⭐ ${escapeHtml(m.vote_average?.toFixed(1) || 'N/A')}
-                        <small style="color:var(--text-muted);">(${escapeHtml(m.vote_count || 0)} votes)</small>
+                    <p class="explore-rating-line" data-imdb-state="loading">
+                        ⭐ <span class="explore-rating-value">${escapeHtml(tmdbAvg)}</span>
+                        <small class="explore-rating-meta">IMDb caricamento…</small>
                     </p>
                 </div>
             `;
+
+            // Lazy IMDb fetch — non blocca il render
+            if (m.title) {
+                fetchImdbRating({ title: m.title, year: releaseYear }).then(imdb => {
+                    const valueEl = card.querySelector('.explore-rating-value');
+                    const metaEl = card.querySelector('.explore-rating-meta');
+                    const lineEl = card.querySelector('.explore-rating-line');
+                    if (!valueEl || !metaEl || !lineEl) return;
+                    if (imdb?.rating) {
+                        valueEl.textContent = imdb.rating;
+                        metaEl.textContent = imdb.votes ? `IMDb · ${imdb.votes}` : 'IMDb';
+                        lineEl.dataset.imdbState = 'ok';
+                    } else {
+                        metaEl.textContent = `TMDB (IMDb n/d)`;
+                        lineEl.dataset.imdbState = 'fallback';
+                    }
+                });
+            }
 
             let touchStartX = 0, touchStartY = 0, touchMoved = false, touchStartTime = 0;
 
@@ -1529,9 +1550,28 @@ async function showFullMovieDetails(tmdbId, imdbId = null) {
         const revenue = movie.revenue > 0 ? `$${(movie.revenue / 1_000_000).toFixed(0)}M` : '—';
         const castArr = (movie.credits?.cast || []).slice(0, 10);
         const tagline = movie.tagline || '';
-        const voteAvg = movie.vote_average ? movie.vote_average.toFixed(1) : '—';
-        const voteCount = movie.vote_count || 0;
-        const imdbActual = movie.imdb_id || imdbId;
+        const tmdbVoteAvg = movie.vote_average ? movie.vote_average.toFixed(1) : '—';
+        const tmdbVoteCount = movie.vote_count || 0;
+        const imdbActual = movie.external_ids?.imdb_id || movie.imdb_id || imdbId;
+
+        // Tenta IMDb via OMDb. Se fallisce, fallback su TMDB con label esplicita.
+        let ratingValue = tmdbVoteAvg;
+        let ratingLabel = `TMDB · ${tmdbVoteCount.toLocaleString('it-IT')} voti`;
+        try {
+            const imdb = await fetchImdbRating({
+                imdbId: imdbActual,
+                title: movie.title,
+                year: movie.release_date?.split('-')[0]
+            });
+            if (imdb?.rating) {
+                ratingValue = imdb.rating;
+                ratingLabel = `IMDb · ${imdb.votes || tmdbVoteCount.toLocaleString('it-IT')} voti`;
+            } else {
+                ratingLabel = `TMDB · ${tmdbVoteCount.toLocaleString('it-IT')} voti <small>(IMDb non disponibile)</small>`;
+            }
+        } catch (e) {
+            // resta su TMDB
+        }
         const tmdbLink = `https://www.themoviedb.org/movie/${tmdbId}`;
         const imdbLink = imdbActual ? `https://www.imdb.com/title/${imdbActual}` : '#';
 
@@ -1563,8 +1603,8 @@ async function showFullMovieDetails(tmdbId, imdbId = null) {
                 <aside class="md-poster-col">
                     ${poster ? `<img class="md-poster" src="${escapeAttr(poster)}" alt="${escapeAttr(movie.title)}">` : '<div class="md-poster" style="display:flex;align-items:center;justify-content:center;color:var(--text-muted);">No poster</div>'}
                     <div class="md-rating-card">
-                        <span class="md-rating-value">${escapeHtml(voteAvg)}<span class="md-rating-max">/10</span></span>
-                        <p class="md-rating-label">TMDB · ${escapeHtml(voteCount)} votes</p>
+                        <span class="md-rating-value">${escapeHtml(ratingValue)}<span class="md-rating-max">/10</span></span>
+                        <p class="md-rating-label">${ratingLabel}</p>
                     </div>
                 </aside>
 

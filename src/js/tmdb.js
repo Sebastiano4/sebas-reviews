@@ -154,3 +154,74 @@ export async function fetchActorImage(actorName) {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// IMDb rating via OMDb — with in-memory cache + concurrency limit
+// ---------------------------------------------------------------------------
+const OMDB_KEY = '3bab6459';
+const imdbCache = new Map(); // key → { rating: string|null, votes: string|null }
+const imdbPending = new Map(); // key → Promise (deduplica chiamate concorrenti)
+
+let imdbInFlight = 0;
+const imdbQueue = [];
+const IMDB_MAX_CONCURRENT = 4;
+
+function runImdbQueue() {
+  while (imdbInFlight < IMDB_MAX_CONCURRENT && imdbQueue.length) {
+    const job = imdbQueue.shift();
+    imdbInFlight++;
+    job().finally(() => {
+      imdbInFlight--;
+      runImdbQueue();
+    });
+  }
+}
+
+function enqueueImdb(task) {
+  return new Promise((resolve, reject) => {
+    imdbQueue.push(() => task().then(resolve, reject));
+    runImdbQueue();
+  });
+}
+
+/**
+ * Recupera rating + numero voti IMDb via OMDb.
+ * Accetta { imdbId } (preferito) o { title, year } come fallback.
+ * Restituisce { rating: "7.3" | null, votes: "1,933,456" | null } o null se irraggiungibile.
+ */
+export async function fetchImdbRating({ imdbId, title, year } = {}) {
+  const key = imdbId ? `id:${imdbId}` : `t:${(title || '').toLowerCase()}:${year || ''}`;
+  if (imdbCache.has(key)) return imdbCache.get(key);
+  if (imdbPending.has(key)) return imdbPending.get(key);
+
+  const promise = enqueueImdb(async () => {
+    const url = imdbId
+      ? `https://www.omdbapi.com/?i=${encodeURIComponent(imdbId)}&apikey=${OMDB_KEY}`
+      : `https://www.omdbapi.com/?t=${encodeURIComponent(title || '')}${year ? `&y=${encodeURIComponent(year)}` : ''}&apikey=${OMDB_KEY}`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.Response !== 'True') {
+        const result = { rating: null, votes: null };
+        imdbCache.set(key, result);
+        return result;
+      }
+      const result = {
+        rating: data.imdbRating && data.imdbRating !== 'N/A' ? data.imdbRating : null,
+        votes: data.imdbVotes && data.imdbVotes !== 'N/A' ? data.imdbVotes : null,
+        imdbId: data.imdbID || imdbId || null
+      };
+      imdbCache.set(key, result);
+      return result;
+    } catch (err) {
+      console.warn('[OMDb] fetch failed for', key, err);
+      const result = { rating: null, votes: null };
+      imdbCache.set(key, result);
+      return result;
+    }
+  });
+
+  imdbPending.set(key, promise);
+  promise.finally(() => imdbPending.delete(key));
+  return promise;
+}
