@@ -1293,6 +1293,34 @@ body.theme-light .custom-select-option:hover {
     color: #ff8a8a;
 }
 
+/* Per-row identity colors — each action gets its own tint */
+.profile-row[data-action="theme"]    { --row-accent: #c8a951; }
+.profile-row[data-action="import"]   { --row-accent: #5fb3b3; }
+.profile-row[data-action="repair"]   { --row-accent: #d68a52; }
+.profile-row[data-action="cache"]    { --row-accent: #9b7bb8; }
+.profile-row[data-action="logout"]   { --row-accent: #7a8a9b; }
+
+.profile-row[data-action] .profile-row-icon {
+    background: color-mix(in srgb, var(--row-accent) 12%, var(--surface-2));
+    color: var(--row-accent);
+    border: 1px solid color-mix(in srgb, var(--row-accent) 22%, transparent);
+}
+
+.profile-row[data-action]:hover {
+    background: color-mix(in srgb, var(--row-accent) 8%, transparent);
+}
+
+.profile-row[data-action]:hover .profile-row-icon {
+    background: color-mix(in srgb, var(--row-accent) 22%, var(--surface-3));
+    border-color: color-mix(in srgb, var(--row-accent) 45%, transparent);
+    color: color-mix(in srgb, var(--row-accent) 80%, #fff);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--row-accent) 22%, transparent);
+}
+
+.profile-row[data-action]:hover .profile-row-chevron {
+    color: var(--row-accent);
+}
+
 .profile-footer {
     margin-top: 1rem;
     padding-top: 0.9rem;
@@ -2606,6 +2634,154 @@ body[data-active-section="vault"] .bottom-nav-item.active { color: var(--vault-c
 
 @media (max-width: 540px) {
     .vault-podium { grid-template-columns: 1fr; }
+}
+
+/* =========================================
+   IMPORT / EXPORT MODAL — restyled
+   ========================================= */
+.ie-content {
+    padding: 1.6rem 1.6rem 1.4rem !important;
+}
+
+.ie-header {
+    text-align: left;
+    margin: 0 0 1.2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--hairline);
+}
+.ie-eyebrow {
+    font-family: 'Cinzel', serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.32em;
+    color: var(--accent-gold);
+    opacity: 0.8;
+    margin: 0 0 4px;
+}
+.ie-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: var(--text-main);
+    letter-spacing: 0.02em;
+}
+.ie-subtitle {
+    font-size: 0.84rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* Three feature cards, each with its own accent color */
+.ie-card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: start;
+    padding: 1rem 1.1rem;
+    margin-bottom: 0.8rem;
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--ie-accent, var(--accent-gold)) 8%, var(--surface-1)) 0%,
+        var(--surface-1) 100%);
+    border: 1px solid color-mix(in srgb, var(--ie-accent, var(--accent-gold)) 22%, var(--hairline));
+    border-radius: 16px;
+    transition: border-color var(--dur-fast) var(--ease-out),
+                background var(--dur-fast) var(--ease-out),
+                transform var(--dur-fast) var(--ease-out);
+}
+.ie-card:hover {
+    border-color: color-mix(in srgb, var(--ie-accent, var(--accent-gold)) 45%, var(--hairline-strong));
+    transform: translateY(-1px);
+}
+
+.ie-card--export      { --ie-accent: #7a9b7a; }
+.ie-card--import      { --ie-accent: #5fb3b3; }
+.ie-card--letterboxd  { --ie-accent: #d68a52; }
+
+.ie-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--ie-accent) 18%, var(--surface-2));
+    color: var(--ie-accent);
+    border: 1px solid color-mix(in srgb, var(--ie-accent) 30%, transparent);
+    flex-shrink: 0;
+}
+.ie-card-icon svg { width: 22px; height: 22px; }
+
+.ie-card-body { min-width: 0; }
+
+.ie-card-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 4px;
+    letter-spacing: 0.02em;
+}
+.ie-card-desc {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+    line-height: 1.4;
+}
+.ie-warn {
+    color: #ef9a6b;
+    font-weight: 600;
+}
+
+.ie-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.55rem 1rem;
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--ie-accent) 22%, var(--surface-2)) 0%,
+        var(--surface-2) 100%);
+    border: 1px solid color-mix(in srgb, var(--ie-accent) 45%, var(--hairline-strong));
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.84rem;
+    font-weight: 600;
+    border-radius: var(--r-pill);
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    transition: background var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out),
+                transform var(--dur-fast) var(--ease-out),
+                box-shadow var(--dur-fast) var(--ease-out);
+}
+.ie-action-btn svg { width: 14px; height: 14px; transition: transform var(--dur-fast) var(--ease-out); }
+.ie-action-btn:hover {
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--ie-accent) 35%, var(--surface-3)) 0%,
+        var(--surface-3) 100%);
+    border-color: color-mix(in srgb, var(--ie-accent) 65%, var(--hairline-strong));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--ie-accent) 22%, transparent);
+}
+.ie-action-btn:hover svg { transform: translateX(3px); }
+
+.ie-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 1rem 0 0;
+    padding: 10px 14px;
+    background: rgba(239, 154, 107, 0.06);
+    border: 1px solid rgba(239, 154, 107, 0.22);
+    border-radius: 12px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+.ie-footer svg {
+    width: 16px;
+    height: 16px;
+    color: #ef9a6b;
+    flex-shrink: 0;
 }
 
 /* Vault map summary diagnostic */

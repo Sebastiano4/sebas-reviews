@@ -569,25 +569,62 @@
 
     <!-- ==================== MODALE IMPORT / EXPORT ==================== -->
     <div id="importExportModal" class="modal">
-        <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-content ie-content" style="max-width: 620px;">
             <span class="close-import-export">&times;</span>
-            <h2 style="font-family:'Cinzel',serif; color:var(--accent);">📁 Import & Export</h2>
-            <div class="detail-section" style="margin-bottom:1.5rem;">
-                <h4>📤 Export Your Archive</h4>
-                <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:10px;">Download your entire movie collection as a JSON file. Use this to create a backup or transfer your data to another device.</p>
-                <button class="btn-primary" id="exportDataBtn2" style="width:100%;">📤 Export as JSON</button>
+
+            <header class="ie-header">
+                <p class="ie-eyebrow">DATA · BACKUP</p>
+                <h2 class="ie-title">Import &amp; Export</h2>
+                <p class="ie-subtitle">Backup, ripristino e migrazione da Letterboxd.</p>
+            </header>
+
+            <div class="ie-card ie-card--export">
+                <div class="ie-card-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div class="ie-card-body">
+                    <h4 class="ie-card-title">Export Your Archive</h4>
+                    <p class="ie-card-desc">Scarica l'intera collezione come file JSON — utile per backup o trasferimento su un altro dispositivo.</p>
+                    <button class="ie-action-btn" id="exportDataBtn2">
+                        <span>Esporta come JSON</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </div>
             </div>
-            <div class="detail-section" style="margin-bottom:1.5rem;">
-                <h4>📥 Import a Backup</h4>
-                <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:10px;">Restore a previously exported JSON file. ⚠️ This will <strong>replace</strong> all your current data.</p>
-                <button class="btn-primary" id="importDataBtn2" style="width:100%;">📥 Import JSON Backup</button>
+
+            <div class="ie-card ie-card--import">
+                <div class="ie-card-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </div>
+                <div class="ie-card-body">
+                    <h4 class="ie-card-title">Import a Backup</h4>
+                    <p class="ie-card-desc">Ripristina un file JSON esportato in precedenza. <strong class="ie-warn">Sostituirà tutti i dati attuali.</strong></p>
+                    <button class="ie-action-btn" id="importDataBtn2">
+                        <span>Importa backup JSON</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </div>
             </div>
-            <div class="detail-section" style="margin-bottom:1.5rem;">
-                <h4>📋 Import from Letterboxd</h4>
-                <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:10px;">Import your ratings from a Letterboxd CSV export file. Ratings are converted from 0-5 scale to 0-10 scale.</p>
-                <button class="btn-primary" id="importCsvBtn2" style="width:100%;">📋 Import Letterboxd CSV</button>
+
+            <div class="ie-card ie-card--letterboxd">
+                <div class="ie-card-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="12" cy="12" r="3"/><circle cx="18" cy="12" r="3"/></svg>
+                </div>
+                <div class="ie-card-body">
+                    <h4 class="ie-card-title">Import from Letterboxd</h4>
+                    <p class="ie-card-desc">Importa i tuoi voti da un export CSV di Letterboxd — conversione automatica dalla scala 0–5 a 0–10.</p>
+                    <button class="ie-action-btn" id="importCsvBtn2">
+                        <span>Importa CSV Letterboxd</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </div>
             </div>
-            <p style="font-size:0.75rem; color:var(--text-muted); text-align:center; margin-top:1rem;">All imports will overwrite existing data. Make a backup first!</p>
+
+            <p class="ie-footer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Tutti gli import sovrascrivono i dati esistenti. Fai un backup prima di procedere.
+            </p>
+
             <input type="file" id="importFileInput2" accept=".json" style="display:none;">
             <input type="file" id="csvFileInput2" accept=".csv" style="display:none;">
         </div>

@@ -455,7 +455,7 @@ function updateVaultMapSummary(progress) {
         const d = vaultMapDiagnostics;
         const lines = [];
         if (d.noTmdbId === d.totalWatched && d.totalWatched > 0) {
-            lines.push(`⚠️ Tutti i ${d.totalWatched} film visti sono senza <code>tmdbId</code>. Riapri ciascun film e risalvalo per associarlo a TMDB.`);
+            lines.push(`⚠️ Tutti i ${d.totalWatched} film sono senza <code>tmdbId</code>. Vai in <strong>Profilo → Repair Metadata</strong> per associarli automaticamente a TMDB.`);
         } else if (d.fetched > 0 && d.fetchedOk === 0) {
             lines.push(`⚠️ ${d.fetched} fetch tentati su TMDB, <strong>tutti falliti</strong>. Controlla la API key TMDB o la connessione.`);
         } else if (d.fetched > 0 && d.fetchedOk > 0 && filmCount === 0) {

@@ -204,22 +204,22 @@ export function showProfileMainView() {
 
             <div class="profile-group">
                 <p class="profile-group-label">Preferences</p>
-                <button class="profile-row" id="themeToggleProfile">
+                <button class="profile-row" id="themeToggleProfile" data-action="theme">
                     <span class="profile-row-icon">${PROFILE_ICONS.theme}</span>
                     <span class="profile-row-label">Theme</span>
                     <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
                 </button>
-                <button class="profile-row" id="openImportExportBtn">
+                <button class="profile-row" id="openImportExportBtn" data-action="import">
                     <span class="profile-row-icon">${PROFILE_ICONS.importExport}</span>
                     <span class="profile-row-label">Import / Export</span>
                     <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
                 </button>
-                <button class="profile-row" id="repairFromProfileBtn">
+                <button class="profile-row" id="repairFromProfileBtn" data-action="repair">
                     <span class="profile-row-icon">${PROFILE_ICONS.wrench}</span>
                     <span class="profile-row-label">Repair Metadata</span>
                     <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
                 </button>
-                <button class="profile-row" id="clearCacheBtn">
+                <button class="profile-row" id="clearCacheBtn" data-action="cache">
                     <span class="profile-row-icon">${PROFILE_ICONS.cache}</span>
                     <span class="profile-row-label">Clear Cache</span>
                     <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
@@ -228,7 +228,7 @@ export function showProfileMainView() {
 
             <div class="profile-group">
                 <p class="profile-group-label">Account</p>
-                <button class="profile-row" id="logoutFromProfileBtn">
+                <button class="profile-row" id="logoutFromProfileBtn" data-action="logout">
                     <span class="profile-row-icon">${PROFILE_ICONS.logout}</span>
                     <span class="profile-row-label">Logout</span>
                     <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
@@ -450,7 +450,14 @@ export async function startRepairWithProgress() {
     const cancelBtn = document.getElementById('repairCancelBtn');
 
     const movies = await fetchAllMovies();
-    const toRepair = movies.filter(m => !m.director || m.director === 'Unknown' || !m.genres || m.runtime === 'N/A' || !m.cast || m.cast.length === 0);
+    const toRepair = movies.filter(m =>
+        !m.director || m.director === 'Unknown' ||
+        !m.genres ||
+        m.runtime === 'N/A' ||
+        !m.cast || m.cast.length === 0 ||
+        !m.tmdbId ||
+        !Array.isArray(m.production_countries) || m.production_countries.length === 0
+    );
     const total = toRepair.length;
     let completed = 0;
 
@@ -467,22 +474,27 @@ export async function startRepairWithProgress() {
         statusEl.innerText = `Repairing: ${movie.title} (${completed + 1} of ${total})`;
         barEl.style.width = `${(completed / total) * 100}%`;
         try {
-            const sData = await searchMoviesWithYear(movie.title, movie.year);
-            if (sData.results?.length) {
-                const tmdb = sData.results[0];
+            // If we already have a tmdbId, skip the search and go straight to details
+            let tmdbId = movie.tmdbId;
+            if (!tmdbId) {
+                const sData = await searchMoviesWithYear(movie.title, movie.year);
+                tmdbId = sData.results?.[0]?.id || null;
+            }
+            if (tmdbId) {
                 const [detRes, credRes] = await Promise.all([
-                    getMovieDetails(tmdb.id),
-                    getMovieCredits(tmdb.id)
+                    getMovieDetails(tmdbId),
+                    getMovieCredits(tmdbId)
                 ]);
-                const director = credRes.crew?.find(p => p.job === 'Director')?.name || 'Unknown';
-                const genres = detRes.genres?.map(g => g.name).join(', ') || '';
-                const runtime = detRes.runtime ? `${detRes.runtime} min` : 'N/A';
+                const director = credRes.crew?.find(p => p.job === 'Director')?.name || movie.director || 'Unknown';
+                const genres = detRes.genres?.map(g => g.name).join(', ') || movie.genres || '';
+                const runtime = detRes.runtime ? `${detRes.runtime} min` : (movie.runtime || 'N/A');
                 const year = detRes.release_date?.split('-')[0] || movie.year;
-                const cast = credRes.cast?.slice(0, 10).map(a => a.name) || [];
-                await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), {
-                    director, genres, runtime, year, cast
-                });
-                window.updateMovieInCache?.(movie.id, { director, genres, runtime, year, cast });
+                const cast = credRes.cast?.slice(0, 10).map(a => a.name) || movie.cast || [];
+                const production_countries = Array.isArray(detRes.production_countries) ? detRes.production_countries : [];
+
+                const updates = { director, genres, runtime, year, cast, tmdbId, production_countries };
+                await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), updates);
+                window.updateMovieInCache?.(movie.id, updates);
             }
         } catch (err) {
             console.error(`Error repairing ${movie.title}:`, err);

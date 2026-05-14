@@ -70,13 +70,22 @@ main#app::before {
 
 /* --- MOVIE CARD --- */
 .movie-card {
-    background: var(--card-bg);
-    border-radius: 16px;
+    position: relative;
+    background: linear-gradient(180deg,
+        rgba(28, 30, 38, 0.72) 0%,
+        rgba(18, 20, 26, 0.85) 100%);
+    border-radius: 18px;
     overflow: hidden;
     cursor: pointer;
-    border: 1px solid var(--border);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.03);
-    transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+        0 10px 28px rgba(0, 0, 0, 0.55),
+        0 2px 6px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition:
+        transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1),
+        border-color 0.3s ease,
+        box-shadow 0.4s ease;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     animation: cardAppear 0.4s ease-out;
@@ -88,9 +97,13 @@ main#app::before {
 }
 
 .movie-card:hover {
-    transform: translateY(-8px) scale(1.02);
-    border-color: var(--accent-gold);
-    box-shadow: 0 18px 32px rgba(0, 0, 0, 0.7);
+    transform: translateY(-6px) scale(1.015);
+    border-color: rgba(212, 175, 55, 0.45);
+    box-shadow:
+        0 22px 44px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(212, 175, 55, 0.18),
+        0 0 32px rgba(212, 175, 55, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .movie-card.removing {
@@ -98,18 +111,41 @@ main#app::before {
     transform: scale(0.8);
 }
 
+/* Subtle top sheen */
 .movie-card::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%);
+    height: 50%;
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.02) 50%,
+        transparent 100%);
     pointer-events: none;
     z-index: 2;
     border-radius: inherit;
+    opacity: 0.7;
 }
+
+/* Gold corner accent that lights up on hover */
+.movie-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle at top left,
+        rgba(212, 175, 55, 0.18) 0%,
+        transparent 70%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+    z-index: 2;
+}
+.movie-card:hover::after { opacity: 1; }
 
 .poster-container {
     position: relative;
@@ -145,8 +181,11 @@ main#app::before {
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 40%;
-    background: linear-gradient(to top, var(--card-bg), transparent);
+    height: 55%;
+    background: linear-gradient(to top,
+        rgba(18, 20, 26, 0.95) 0%,
+        rgba(18, 20, 26, 0.6) 35%,
+        transparent 100%);
     pointer-events: none;
 }
 
@@ -155,35 +194,62 @@ main#app::before {
     aspect-ratio: 2/3;
     object-fit: cover;
     display: block;
-    transition: transform 0.4s ease;
+    transition: transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+                filter 0.4s ease;
+    filter: brightness(0.96) saturate(1.05);
 }
 
 .movie-card:hover .poster-container img {
-    transform: scale(1.08);
+    transform: scale(1.06);
+    filter: brightness(1.02) saturate(1.15);
 }
 
 .card-info {
-    padding: 1.2rem;
+    padding: 0.95rem 1.05rem 1.05rem;
     position: relative;
     z-index: 1;
 }
 
 .card-info h3 {
     margin: 0;
+    font-family: 'Cinzel', serif;
     font-size: 1rem;
     font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #f5f0e8;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: color 0.3s ease;
+}
+
+.movie-card:hover .card-info h3 {
+    color: var(--accent-gold);
 }
 
 .quick-tools {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 8px;
-    border-top: 1px solid var(--border);
-    padding-top: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.quick-tools > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 9px;
+    background: linear-gradient(135deg,
+        rgba(212, 175, 55, 0.16),
+        rgba(212, 175, 55, 0.08));
+    border: 1px solid rgba(212, 175, 55, 0.28);
+    border-radius: 999px;
+    font-size: 0.78rem !important;
+    font-weight: 600;
+    color: var(--accent-gold) !important;
+    letter-spacing: 0.02em;
 }
 
 /* --- DRAG & DROP --- */
