@@ -2860,6 +2860,168 @@ body[data-active-section="vault"] .bottom-nav-item.active { color: var(--vault-c
     flex-shrink: 0;
 }
 
+/* =========================================
+   REPAIR METADATA PANEL — batched progress
+   ========================================= */
+.repair-panel {
+    padding: 1rem 0.4rem;
+    text-align: left;
+}
+.repair-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 4px;
+    letter-spacing: 0.02em;
+}
+.repair-subtitle {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin: 0 0 1.2rem;
+}
+
+.repair-progress-wrap {
+    margin-bottom: 1rem;
+}
+.repair-progress-bar {
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+    height: 10px;
+    position: relative;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.repair-progress-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        #d4af37 0%,
+        #f5c518 50%,
+        #d4af37 100%);
+    background-size: 200% 100%;
+    border-radius: 999px;
+    transition: width 0.35s var(--ease-out);
+    box-shadow: 0 0 14px rgba(245, 197, 24, 0.45);
+    animation: repairShimmer 2.2s linear infinite;
+}
+@keyframes repairShimmer {
+    0%   { background-position: 0% 0; }
+    100% { background-position: 200% 0; }
+}
+.repair-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.02em;
+}
+.repair-progress-meta #repairPercent {
+    color: var(--accent-gold);
+    font-weight: 600;
+}
+
+.repair-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 1rem 0;
+}
+.repair-stat {
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 10px 8px;
+    text-align: center;
+}
+.repair-stat-label {
+    display: block;
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+.repair-stat-value {
+    display: block;
+    font-family: 'Cinzel', serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.1;
+}
+.repair-stat:nth-child(2) .repair-stat-value { color: #f5c518; }
+.repair-stat:nth-child(3) .repair-stat-value { color: #ef9a6b; }
+
+.repair-status {
+    margin: 1rem 0 1.2rem;
+    padding: 12px 14px;
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    font-size: 0.82rem;
+    color: var(--text-main);
+    line-height: 1.4;
+    min-height: 44px;
+    transition: background 0.3s ease, border-color 0.3s ease;
+}
+.repair-status strong {
+    color: var(--accent-gold);
+    font-weight: 700;
+}
+.repair-elapsed {
+    color: var(--text-muted);
+    font-size: 0.78em;
+    margin-left: 6px;
+}
+
+.repair-actions {
+    display: flex;
+    gap: 8px;
+}
+.repair-btn {
+    flex: 1;
+    padding: 0.65rem 1rem;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--hairline-strong);
+    background: var(--surface-2);
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out);
+}
+.repair-btn:hover {
+    background: var(--surface-3);
+    border-color: rgba(255, 255, 255, 0.22);
+}
+.repair-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.repair-btn-cancel:not(:disabled):hover {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef9a6b;
+}
+.repair-btn-back {
+    background: linear-gradient(135deg,
+        rgba(212, 175, 55, 0.18) 0%,
+        var(--surface-2) 100%);
+    border-color: rgba(212, 175, 55, 0.35);
+}
+.repair-btn-back:hover {
+    background: linear-gradient(135deg,
+        rgba(212, 175, 55, 0.32) 0%,
+        var(--surface-3) 100%);
+    border-color: var(--accent-gold);
+}
+
 /* Vault map summary diagnostic */
 #vaultMapSummary code {
     background: var(--surface-2);

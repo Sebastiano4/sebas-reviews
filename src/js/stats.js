@@ -303,7 +303,7 @@ function updateRecurringCompanions(watched) {
     }).join('');
 }
 
-const ISO2_TO_ISO3 = {
+export const ISO2_TO_ISO3 = {
     AF:'AFG',AL:'ALB',DZ:'DZA',AS:'ASM',AD:'AND',AO:'AGO',AI:'AIA',AQ:'ATA',AG:'ATG',AR:'ARG',AM:'ARM',AW:'ABW',AU:'AUS',AT:'AUT',AZ:'AZE',
     BS:'BHS',BH:'BHR',BD:'BGD',BB:'BRB',BY:'BLR',BE:'BEL',BZ:'BLZ',BJ:'BEN',BM:'BMU',BT:'BTN',BO:'BOL',BA:'BIH',BW:'BWA',BR:'BRA',IO:'IOT',
     VG:'VGB',BN:'BRN',BG:'BGR',BF:'BFA',BI:'BDI',KH:'KHM',CM:'CMR',CA:'CAN',CV:'CPV',KY:'CYM',CF:'CAF',TD:'TCD',CL:'CHL',CN:'CHN',CX:'CXR',

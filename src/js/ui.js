@@ -8,11 +8,12 @@
  * In pratica, è quello che gestisce i "bottoni" e il look dell'app.
  */
 
-import { updateAdvancedStats, buildDirectorsRanking, buildActorsRanking, buildGenreChart, buildEloRanking, cleanupStats, showVaultSkeleton } from './stats.js';
+import { updateAdvancedStats, buildDirectorsRanking, buildActorsRanking, buildGenreChart, buildEloRanking, cleanupStats, showVaultSkeleton, ISO2_TO_ISO3 } from './stats.js';
 import { renderProfileSkeleton, showToast } from './utils.js';
 import { auth, db, storage } from './firebase.js';
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 import { openModal, closeModal } from './modal-manager.js';
+import { fetchImdbRating } from './tmdb.js';
 
 // --- UI MODULE: Modal Management and Theme Logic ---
 
@@ -429,25 +430,131 @@ export function showProfileConfirmPage(title, message, onConfirm) {
     });
 }
 
-// Avvia il repair con barra di progresso nel profilo
+// --- BATCHED REPAIR ENGINE -----------------------------------------------
+const REPAIR_BATCH_SIZE = 6;
+const REPAIR_BATCH_DELAY_MS = 80;        // micro-pause tra batch → evita 429
+let _repairCancelled = false;
+
+function normalizeIso3(iso2) {
+    if (typeof iso2 !== 'string') return null;
+    const up = iso2.trim().toUpperCase();
+    if (up.length === 3) return up;
+    return ISO2_TO_ISO3[up] || null;
+}
+
+/** Elabora un singolo film: search (se serve) → dettagli/credits → OMDb → save. */
+async function repairOneMovie(movie, currentUser) {
+    // 1. Risolvi tmdbId (skip search se già presente — massimizza velocità)
+    let tmdbId = movie.tmdbId;
+    if (!tmdbId) {
+        const sData = await searchMoviesWithYear(movie.title, movie.year);
+        tmdbId = sData.results?.[0]?.id || null;
+    }
+    if (!tmdbId) {
+        throw new Error('no-tmdb-match');
+    }
+
+    // 2. Dettagli + credits in parallelo (1 round-trip TMDB ciascuno)
+    const [detRes, credRes] = await Promise.all([
+        getMovieDetails(tmdbId, 'external_ids'),
+        getMovieCredits(tmdbId)
+    ]);
+
+    const director = credRes.crew?.find(p => p.job === 'Director')?.name || movie.director || 'Unknown';
+    const genres = detRes.genres?.map(g => g.name).join(', ') || movie.genres || '';
+    const runtime = detRes.runtime ? `${detRes.runtime} min` : (movie.runtime || 'N/A');
+    const year = detRes.release_date?.split('-')[0] || movie.year;
+    const cast = credRes.cast?.slice(0, 10).map(a => a.name) || movie.cast || [];
+
+    // 3. Production countries con codice ISO-3 attaccato (priorità formato ISO-3)
+    const rawCountries = Array.isArray(detRes.production_countries) ? detRes.production_countries : [];
+    const production_countries = rawCountries.map(c => ({
+        iso_3166_1: c.iso_3166_1 || null,
+        name: c.name || null,
+        iso_3: normalizeIso3(c.iso_3166_1)
+    }));
+
+    // 4. imdb_id da external_ids (sempre ottenibile, niente OMDb richiesto)
+    const imdb_id = detRes.external_ids?.imdb_id || detRes.imdb_id || null;
+
+    // 5. Fetch OMDb per voto IMDb (concorrenza gestita internamente dal queue)
+    let imdb_rating = null;
+    let imdb_votes = null;
+    if (imdb_id) {
+        try {
+            const imdbData = await fetchImdbRating({ imdbId: imdb_id });
+            if (imdbData?.rating) {
+                imdb_rating = imdbData.rating;
+                imdb_votes = imdbData.votes;
+            }
+        } catch (_) { /* silenzioso, non blocca il repair */ }
+    }
+
+    // 6. Save atomico
+    const updates = {
+        director, genres, runtime, year, cast,
+        tmdbId, imdb_id,
+        production_countries,
+        imdb_rating, imdb_votes
+    };
+    await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), updates);
+    window.updateMovieInCache?.(movie.id, updates);
+
+    return { imdbRecovered: !!imdb_rating };
+}
+
+// Avvia il repair con barra di progresso nel profilo (BATCHED)
 export async function startRepairWithProgress() {
     const currentUser = getCurrentUser();
     if (!currentUser) return;
+
+    _repairCancelled = false;
+
     const container = document.getElementById('profileDynamicContent');
     container.innerHTML = `
-        <div style="text-align:center;">
-            <h3 style="font-family:'Cinzel',serif; color:var(--accent); margin-bottom:1rem;">🛠️ Repairing Metadata</h3>
-            <p id="repairStatus" style="color:var(--text-muted); margin-bottom:1rem;">Starting…</p>
-            <div style="background:#000; border-radius:8px; overflow:hidden; margin-bottom:1rem;">
-                <div id="repairProgressBar" style="width:0%; height:6px; background:var(--accent); transition: width 0.2s;"></div>
+        <div class="repair-panel">
+            <h3 class="repair-title">🛠️ Repairing Metadata</h3>
+            <p class="repair-subtitle">Elaborazione parallela a batch da ${REPAIR_BATCH_SIZE} film.</p>
+
+            <div class="repair-progress-wrap">
+                <div class="repair-progress-bar"><div id="repairProgressBar" class="repair-progress-fill"></div></div>
+                <div class="repair-progress-meta">
+                    <span id="repairCounter">0 / 0</span>
+                    <span id="repairPercent">0%</span>
+                </div>
             </div>
-            <button class="btn-primary" style="background:#1e293b;" id="repairCancelBtn" disabled>Cancel</button>
+
+            <div class="repair-stats" id="repairStats">
+                <div class="repair-stat"><span class="repair-stat-label">Aggiornati</span><span class="repair-stat-value" id="repairUpdated">0</span></div>
+                <div class="repair-stat"><span class="repair-stat-label">IMDb voti</span><span class="repair-stat-value" id="repairImdb">0</span></div>
+                <div class="repair-stat"><span class="repair-stat-label">Errori</span><span class="repair-stat-value" id="repairFailed">0</span></div>
+            </div>
+
+            <p id="repairStatus" class="repair-status">In avvio…</p>
+
+            <div class="repair-actions">
+                <button class="repair-btn repair-btn-cancel" id="repairCancelBtn">Interrompi</button>
+                <button class="repair-btn repair-btn-back" id="repairBackBtn" hidden>Torna al profilo</button>
+            </div>
         </div>
     `;
 
-    const statusEl = document.getElementById('repairStatus');
     const barEl = document.getElementById('repairProgressBar');
+    const counterEl = document.getElementById('repairCounter');
+    const percentEl = document.getElementById('repairPercent');
+    const updatedEl = document.getElementById('repairUpdated');
+    const imdbEl = document.getElementById('repairImdb');
+    const failedEl = document.getElementById('repairFailed');
+    const statusEl = document.getElementById('repairStatus');
     const cancelBtn = document.getElementById('repairCancelBtn');
+    const backBtn = document.getElementById('repairBackBtn');
+
+    cancelBtn.addEventListener('click', () => {
+        _repairCancelled = true;
+        cancelBtn.disabled = true;
+        cancelBtn.innerText = 'Interruzione…';
+    });
+    backBtn.addEventListener('click', () => showProfileMainView());
 
     const movies = await fetchAllMovies();
     const toRepair = movies.filter(m =>
@@ -456,59 +563,79 @@ export async function startRepairWithProgress() {
         m.runtime === 'N/A' ||
         !m.cast || m.cast.length === 0 ||
         !m.tmdbId ||
-        !Array.isArray(m.production_countries) || m.production_countries.length === 0
+        !m.imdb_id ||
+        !Array.isArray(m.production_countries) || m.production_countries.length === 0 ||
+        !m.imdb_rating
     );
     const total = toRepair.length;
-    let completed = 0;
+
+    counterEl.textContent = `0 / ${total}`;
 
     if (total === 0) {
-        statusEl.innerText = 'All movies already up to date!';
+        statusEl.innerText = 'Tutti i film sono già aggiornati ✅';
         barEl.style.width = '100%';
-        cancelBtn.disabled = false;
-        cancelBtn.innerText = 'Back to Profile';
-        cancelBtn.addEventListener('click', () => showProfileMainView());
+        percentEl.textContent = '100%';
+        cancelBtn.hidden = true;
+        backBtn.hidden = false;
         return;
     }
 
-    for (const movie of toRepair) {
-        statusEl.innerText = `Repairing: ${movie.title} (${completed + 1} of ${total})`;
-        barEl.style.width = `${(completed / total) * 100}%`;
-        try {
-            // If we already have a tmdbId, skip the search and go straight to details
-            let tmdbId = movie.tmdbId;
-            if (!tmdbId) {
-                const sData = await searchMoviesWithYear(movie.title, movie.year);
-                tmdbId = sData.results?.[0]?.id || null;
-            }
-            if (tmdbId) {
-                const [detRes, credRes] = await Promise.all([
-                    getMovieDetails(tmdbId),
-                    getMovieCredits(tmdbId)
-                ]);
-                const director = credRes.crew?.find(p => p.job === 'Director')?.name || movie.director || 'Unknown';
-                const genres = detRes.genres?.map(g => g.name).join(', ') || movie.genres || '';
-                const runtime = detRes.runtime ? `${detRes.runtime} min` : (movie.runtime || 'N/A');
-                const year = detRes.release_date?.split('-')[0] || movie.year;
-                const cast = credRes.cast?.slice(0, 10).map(a => a.name) || movie.cast || [];
-                const production_countries = Array.isArray(detRes.production_countries) ? detRes.production_countries : [];
+    const stats = { processed: 0, updated: 0, failed: 0, imdbRecovered: 0 };
+    const startTime = Date.now();
 
-                const updates = { director, genres, runtime, year, cast, tmdbId, production_countries };
-                await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), updates);
-                window.updateMovieInCache?.(movie.id, updates);
+    // Process in batch da N concorrenti
+    for (let i = 0; i < toRepair.length; i += REPAIR_BATCH_SIZE) {
+        if (_repairCancelled) break;
+        const batch = toRepair.slice(i, i + REPAIR_BATCH_SIZE);
+
+        statusEl.innerText = `Batch ${Math.floor(i / REPAIR_BATCH_SIZE) + 1}: ${batch.map(b => b.title).slice(0, 2).join(', ')}${batch.length > 2 ? ` +${batch.length - 2}` : ''}`;
+
+        await Promise.all(batch.map(async (movie) => {
+            try {
+                const result = await repairOneMovie(movie, currentUser);
+                stats.updated++;
+                if (result.imdbRecovered) stats.imdbRecovered++;
+            } catch (err) {
+                stats.failed++;
+                if (err?.message !== 'no-tmdb-match') {
+                    console.warn(`[Repair] ${movie.title}:`, err);
+                }
+            } finally {
+                stats.processed++;
+                const pct = (stats.processed / total) * 100;
+                barEl.style.width = `${pct}%`;
+                counterEl.textContent = `${stats.processed} / ${total}`;
+                percentEl.textContent = `${pct.toFixed(0)}%`;
+                updatedEl.textContent = stats.updated;
+                imdbEl.textContent = stats.imdbRecovered;
+                failedEl.textContent = stats.failed;
             }
-        } catch (err) {
-            console.error(`Error repairing ${movie.title}:`, err);
+        }));
+
+        // Micro-pausa fra batch (rate-limit safety)
+        if (i + REPAIR_BATCH_SIZE < toRepair.length && !_repairCancelled) {
+            await new Promise(r => setTimeout(r, REPAIR_BATCH_DELAY_MS));
         }
-        completed++;
-        await new Promise(r => setTimeout(r, 250));
     }
+
+    // ===== POST-REPAIR =====
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     barEl.style.width = '100%';
-    statusEl.innerText = `Repair completed: ${total} movies updated.`;
-    cancelBtn.disabled = false;
-    cancelBtn.innerText = 'Back to Profile';
-    cancelBtn.addEventListener('click', () => showProfileMainView());
-    showToast('Metadata repaired!');
-    renderGallery();
+    percentEl.textContent = '100%';
+
+    // Trigger silenzioso: invalidate + refetch cache, ri-render galleria
+    window.invalidateMoviesCache?.();
+    try { await fetchAllMovies(); } catch (_) {}
+    try { renderGallery(); } catch (_) {}
+
+    statusEl.innerHTML = _repairCancelled
+        ? `⛔ Interrotto dopo ${stats.processed} film.`
+        : `✅ <strong>Database sincronizzato</strong>: ${stats.updated} film aggiornati, ${stats.imdbRecovered} voti IMDb recuperati${stats.failed ? `, ${stats.failed} errori` : ''} <span class="repair-elapsed">· ${elapsed}s</span>`;
+
+    cancelBtn.hidden = true;
+    backBtn.hidden = false;
+
+    showToast(_repairCancelled ? 'Riparazione interrotta' : `Riparazione completata — ${stats.updated} film aggiornati`);
 }
 
 // --- MODAL EVENT LISTENERS ---

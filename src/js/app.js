@@ -707,7 +707,11 @@ async function showExploreMovieDetails(tmdbId) {
     });
 
     document.getElementById('openFullDetailsBtn').addEventListener('click', () => {
-        showFullMovieDetails(tmdbId, movie.imdb_id);
+        showFullMovieDetails(tmdbId, {
+            imdbId: movie.imdb_id,
+            imdbRating: movie.imdb_rating,
+            imdbVotes: movie.imdb_votes
+        });
     });
     
     openModal('exploreMovieModal');
@@ -1529,7 +1533,15 @@ window.syncAwardChips = function() {
 
 
 
-async function showFullMovieDetails(tmdbId, imdbId = null) {
+async function showFullMovieDetails(tmdbId, imdbIdOrOpts = null) {
+    // Accetta sia la vecchia firma (imdbId string) sia un oggetto opzioni.
+    const opts = (typeof imdbIdOrOpts === 'object' && imdbIdOrOpts !== null)
+        ? imdbIdOrOpts
+        : { imdbId: imdbIdOrOpts };
+    const imdbId = opts.imdbId || null;
+    const cachedImdbRating = opts.imdbRating || null;
+    const cachedImdbVotes = opts.imdbVotes || null;
+
     const modal = document.getElementById('movieDetailsModal');
     const content = document.getElementById('movieDetailsContent');
     content.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:3rem 1rem;">Loading full details…</p>';
@@ -1554,23 +1566,30 @@ async function showFullMovieDetails(tmdbId, imdbId = null) {
         const tmdbVoteCount = movie.vote_count || 0;
         const imdbActual = movie.external_ids?.imdb_id || movie.imdb_id || imdbId;
 
-        // Tenta IMDb via OMDb. Se fallisce, fallback su TMDB con label esplicita.
+        // 1° priorità: dati IMDb già salvati in Firestore (post-repair, no fetch).
+        // 2° priorità: fetch OMDb (con cache di sessione interna).
         let ratingValue = tmdbVoteAvg;
         let ratingLabel = `TMDB · ${tmdbVoteCount.toLocaleString('it-IT')} voti`;
-        try {
-            const imdb = await fetchImdbRating({
-                imdbId: imdbActual,
-                title: movie.title,
-                year: movie.release_date?.split('-')[0]
-            });
-            if (imdb?.rating) {
-                ratingValue = imdb.rating;
-                ratingLabel = `IMDb · ${imdb.votes || tmdbVoteCount.toLocaleString('it-IT')} voti`;
-            } else {
-                ratingLabel = `TMDB · ${tmdbVoteCount.toLocaleString('it-IT')} voti <small>(IMDb non disponibile)</small>`;
+
+        if (cachedImdbRating) {
+            ratingValue = cachedImdbRating;
+            ratingLabel = `IMDb · ${cachedImdbVotes || tmdbVoteCount.toLocaleString('it-IT')} voti`;
+        } else {
+            try {
+                const imdb = await fetchImdbRating({
+                    imdbId: imdbActual,
+                    title: movie.title,
+                    year: movie.release_date?.split('-')[0]
+                });
+                if (imdb?.rating) {
+                    ratingValue = imdb.rating;
+                    ratingLabel = `IMDb · ${imdb.votes || tmdbVoteCount.toLocaleString('it-IT')} voti`;
+                } else {
+                    ratingLabel = `TMDB · ${tmdbVoteCount.toLocaleString('it-IT')} voti <small>(IMDb non disponibile)</small>`;
+                }
+            } catch (e) {
+                // resta su TMDB
             }
-        } catch (e) {
-            // resta su TMDB
         }
         const tmdbLink = `https://www.themoviedb.org/movie/${tmdbId}`;
         const imdbLink = imdbActual ? `https://www.imdb.com/title/${imdbActual}` : '#';
