@@ -11,6 +11,7 @@ let vaultGeoJson = null;
 let countryFilmMapping = {};
 let countryAvgRating = {};
 let vaultWatchedCount = 0;
+let vaultMappedFilmsCount = 0;
 let vaultMaxCountryCount = 1;
 let vaultMapDiagnostics = { totalWatched: 0, withCountries: 0, fetched: 0, fetchedOk: 0, fetchFailed: 0, noTmdbId: 0 };
 
@@ -409,11 +410,15 @@ async function ensureProductionCountriesForMovies(movies, onProgress) {
 function buildMappingFromWatched(watched) {
     const mapping = {};
     const ratings = {};
+    const uniqueFilmsWithCountry = new Set();
+
     watched.forEach(m => {
         const countries = Array.isArray(m.production_countries) ? m.production_countries : [];
+        let movieHasCountry = false;
         countries.forEach(country => {
             const code = getMovieCountryCode(country);
             if (!code) return;
+            movieHasCountry = true;
             if (!mapping[code]) mapping[code] = [];
             if (!mapping[code].includes(m.title)) {
                 mapping[code].push(m.title);
@@ -424,18 +429,30 @@ function buildMappingFromWatched(watched) {
                 ratings[code].count++;
             }
         });
+        if (movieHasCountry) uniqueFilmsWithCountry.add(m.id || m.title);
     });
+
     countryAvgRating = {};
     Object.entries(ratings).forEach(([code, r]) => {
         countryAvgRating[code] = r.count ? r.sum / r.count : null;
     });
+    vaultMappedFilmsCount = uniqueFilmsWithCountry.size;
     return mapping;
+}
+
+// Filtro difensivo: tratta come "watched" solo se isWatchlist è esplicitamente
+// false o assente. Stringhe "true"/"false", numeri o oggetti sono gestiti.
+function isReallyWatched(m) {
+    const w = m?.isWatchlist;
+    if (w === true || w === 'true' || w === 1) return false;
+    return true;
 }
 
 async function buildVaultMovieCountryMap(onProgress) {
     const movies = await fetchAllMovies();
-    const watched = movies.filter(m => !m.isWatchlist);
+    const watched = movies.filter(isReallyWatched);
     vaultWatchedCount = watched.length;
+    console.info(`[Vault Map] Watched: ${watched.length} · Watchlist: ${movies.length - watched.length} · Total in collection: ${movies.length}`);
     await ensureProductionCountriesForMovies(watched, onProgress);
     return buildMappingFromWatched(watched);
 }
@@ -448,7 +465,7 @@ function updateVaultMapSummary(progress) {
         return;
     }
     const countryCount = Object.keys(countryFilmMapping).length;
-    const filmCount = Object.values(countryFilmMapping).reduce((sum, list) => sum + list.length, 0);
+    const filmCount = vaultMappedFilmsCount;  // unici film visti con almeno un paese
 
     // Diagnostic mode: zero films mapped → expose why
     if (filmCount === 0 && vaultWatchedCount > 0) {
@@ -473,7 +490,7 @@ function updateVaultMapSummary(progress) {
     }
 
     const diversity = vaultWatchedCount > 0 ? ((countryCount / vaultWatchedCount) * 100).toFixed(0) : 0;
-    summary.innerText = `${countryCount} paesi · ${filmCount} film · diversità ${diversity}%`;
+    summary.innerText = `${countryCount} paesi · ${filmCount} film visti · diversità ${diversity}%`;
 }
 
 function showVaultMapCountryInfo(feature) {
