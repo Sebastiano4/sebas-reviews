@@ -210,7 +210,8 @@ main#app::before {
     overflow: hidden;
     border-bottom: 1px solid var(--border);
     border-radius: 0 0 30px 30px;
-    box-shadow: 0 12px 24px rgba(0,0,0,0.6);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+    isolation: isolate;
 }
 
 .spotlight-bg {
@@ -220,35 +221,80 @@ main#app::before {
     width: 100%;
     height: 100%;
     background-size: cover;
-    background-position: center 20%;
+    background-position: center 25%;
     z-index: 0;
+    /* Reveal dark posters without blowing out bright ones */
+    filter: brightness(1.12) contrast(1.06) saturate(1.12);
+    transform: scale(1.04); /* avoid edge halo from filter */
+    transition: filter 0.6s ease-out, transform 0.6s ease-out;
 }
 
+/* Cinematic text protection: stronger at bottom-left where the title sits,
+   feathered to transparent toward the top-right so the artwork breathes. */
 .spotlight-bg::after {
     content: "";
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 60%);
+    inset: 0;
+    pointer-events: none;
+    background:
+        /* Bottom protective gradient (where the text lives) */
+        linear-gradient(
+            to top,
+            rgba(8, 10, 14, 0.92) 0%,
+            rgba(8, 10, 14, 0.78) 18%,
+            rgba(8, 10, 14, 0.35) 45%,
+            transparent 70%
+        ),
+        /* Left-side soft shading to anchor the text column */
+        linear-gradient(
+            to right,
+            rgba(8, 10, 14, 0.45) 0%,
+            rgba(8, 10, 14, 0.15) 35%,
+            transparent 65%
+        ),
+        /* Subtle vignette for cinematic depth */
+        radial-gradient(
+            ellipse at 70% 30%,
+            transparent 0%,
+            rgba(0, 0, 0, 0.35) 100%
+        );
 }
 
 .spotlight-content {
     position: relative;
     z-index: 1;
+    max-width: 720px;
+}
+
+.spotlight-content h4 {
+    display: inline-block;
+    margin: 0 0 0.6rem;
+    padding-bottom: 4px;
+    font-size: 0.72rem !important;
+    letter-spacing: 0.32em;
+    border-bottom: 1px solid color-mix(in srgb, var(--accent-gold, #d4af37) 55%, transparent);
 }
 
 .spotlight-content h1 {
     font-family: 'Cinzel', serif;
     font-size: 3.5rem;
-    margin: 0.5rem 0;
-    text-shadow: 2px 2px 10px rgba(0,0,0,0.9);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: 0.01em;
+    margin: 0.4rem 0 0.6rem;
+    color: #f7f1e6;
+    text-shadow:
+        0 2px 1px rgba(0,0,0,0.85),
+        0 4px 18px rgba(0,0,0,0.7),
+        0 1px 0 rgba(255,255,255,0.04);
 }
 
 .spotlight-content p {
-    font-size: 1.2rem;
-    color: var(--text-muted);
+    font-size: 1.05rem;
+    color: rgba(245, 240, 232, 0.82);
+    margin: 0;
+    letter-spacing: 0.015em;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.7);
 }
 
 /* --- RACCOMANDAZIONI --- */

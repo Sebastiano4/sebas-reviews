@@ -12,6 +12,7 @@ let countryFilmMapping = {};
 let countryAvgRating = {};
 let vaultWatchedCount = 0;
 let vaultMaxCountryCount = 1;
+let vaultMapDiagnostics = { totalWatched: 0, withCountries: 0, fetched: 0, fetchedOk: 0, fetchFailed: 0, noTmdbId: 0 };
 
 export function setStatsDependencies(deps) {
     ({ fetchAllMovies, saveMovieProductionCountries } = deps);
@@ -352,8 +353,18 @@ function getFillColorForCountry(count) {
 async function ensureProductionCountriesForMovies(movies, onProgress) {
     const missingMovies = movies.filter(m => (!Array.isArray(m.production_countries) || m.production_countries.length === 0) && m.tmdbId);
     const skippedNoTmdb = movies.filter(m => (!Array.isArray(m.production_countries) || m.production_countries.length === 0) && !m.tmdbId).length;
+    const withCountries = movies.length - missingMovies.length - skippedNoTmdb;
 
-    console.info(`[Vault Map] Films totali: ${movies.length} · con paesi già salvati: ${movies.length - missingMovies.length - skippedNoTmdb} · da fetchare (TMDB): ${missingMovies.length} · senza tmdbId: ${skippedNoTmdb}`);
+    vaultMapDiagnostics = {
+        totalWatched: movies.length,
+        withCountries,
+        fetched: missingMovies.length,
+        fetchedOk: 0,
+        fetchFailed: 0,
+        noTmdbId: skippedNoTmdb
+    };
+
+    console.info(`[Vault Map] Films totali: ${movies.length} · con paesi già salvati: ${withCountries} · da fetchare (TMDB): ${missingMovies.length} · senza tmdbId: ${skippedNoTmdb}`);
     if (skippedNoTmdb > 0) {
         console.warn(`[Vault Map] ${skippedNoTmdb} film non hanno tmdbId — non possono essere mappati. Riaprili una volta per associarli a TMDB.`);
     }
@@ -375,6 +386,7 @@ async function ensureProductionCountriesForMovies(movies, onProgress) {
                 const countries = Array.isArray(details.production_countries) ? details.production_countries : [];
                 if (countries.length) {
                     movie.production_countries = countries;
+                    vaultMapDiagnostics.fetchedOk++;
                     if (saveMovieProductionCountries) {
                         saveMovieProductionCountries(movie.id, countries).catch(() => {});
                     }
@@ -382,6 +394,7 @@ async function ensureProductionCountriesForMovies(movies, onProgress) {
                     movie.production_countries = [];
                 }
             } catch (err) {
+                vaultMapDiagnostics.fetchFailed++;
                 console.warn('[Vault Map] fetch fallito per', movie.title, err);
             } finally {
                 done++;
@@ -389,6 +402,8 @@ async function ensureProductionCountriesForMovies(movies, onProgress) {
             }
         }));
     }
+
+    console.info(`[Vault Map] Fetch completato: ${vaultMapDiagnostics.fetchedOk} ok · ${vaultMapDiagnostics.fetchFailed} falliti`);
 }
 
 function buildMappingFromWatched(watched) {
@@ -429,11 +444,34 @@ function updateVaultMapSummary(progress) {
     const summary = document.getElementById('vaultMapSummary');
     if (!summary) return;
     if (progress && progress.total > 0 && progress.done < progress.total) {
-        summary.innerText = `Caricamento dati TMDB… ${progress.done}/${progress.total}`;
+        summary.innerHTML = `Caricamento dati TMDB… ${progress.done}/${progress.total}`;
         return;
     }
     const countryCount = Object.keys(countryFilmMapping).length;
     const filmCount = Object.values(countryFilmMapping).reduce((sum, list) => sum + list.length, 0);
+
+    // Diagnostic mode: zero films mapped → expose why
+    if (filmCount === 0 && vaultWatchedCount > 0) {
+        const d = vaultMapDiagnostics;
+        const lines = [];
+        if (d.noTmdbId === d.totalWatched && d.totalWatched > 0) {
+            lines.push(`⚠️ Tutti i ${d.totalWatched} film visti sono senza <code>tmdbId</code>. Riapri ciascun film e risalvalo per associarlo a TMDB.`);
+        } else if (d.fetched > 0 && d.fetchedOk === 0) {
+            lines.push(`⚠️ ${d.fetched} fetch tentati su TMDB, <strong>tutti falliti</strong>. Controlla la API key TMDB o la connessione.`);
+        } else if (d.fetched > 0 && d.fetchedOk > 0 && filmCount === 0) {
+            lines.push(`⚠️ ${d.fetchedOk} film recuperati da TMDB ma nessun codice paese valido — possibile bug di normalizzazione codici.`);
+        } else if (d.totalWatched === 0) {
+            lines.push(`Nessun film visto nella tua collezione (solo watchlist).`);
+        } else {
+            lines.push(`0 paesi mappati su ${d.totalWatched} film visti.`);
+        }
+        if (d.noTmdbId > 0 && d.noTmdbId !== d.totalWatched) {
+            lines.push(`<small>${d.noTmdbId} film senza tmdbId · ${d.withCountries} con paesi già salvati · ${d.fetchedOk}/${d.fetched} fetch ok</small>`);
+        }
+        summary.innerHTML = lines.join('<br>');
+        return;
+    }
+
     const diversity = vaultWatchedCount > 0 ? ((countryCount / vaultWatchedCount) * 100).toFixed(0) : 0;
     summary.innerText = `${countryCount} paesi · ${filmCount} film · diversità ${diversity}%`;
 }

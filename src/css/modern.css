@@ -2608,6 +2608,23 @@ body[data-active-section="vault"] .bottom-nav-item.active { color: var(--vault-c
     .vault-podium { grid-template-columns: 1fr; }
 }
 
+/* Vault map summary diagnostic */
+#vaultMapSummary code {
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.78em;
+    color: var(--vault-map);
+}
+#vaultMapSummary small {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 0.78em;
+    color: var(--text-muted);
+    opacity: 0.85;
+}
+
 /* Elo tier distribution bar */
 .elo-tier-distribution {
     background: var(--surface-1);
