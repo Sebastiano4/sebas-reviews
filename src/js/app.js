@@ -18,6 +18,7 @@ import {
   getFirstMovieByTitleYear,
   findBestMovieMatch,
   findMovieByImdbId,
+  resolveSavedMovieToTmdb,
   getSimilarMovies,
   fetchImdbRating
 } from './tmdb.js';
@@ -1118,23 +1119,36 @@ async function openReview(id, movieData = null) {
     fullDetailsBtn.style.marginTop = '10px';
     fullDetailsBtn.innerText = '📊 Full Details';
     fullDetailsBtn.addEventListener('click', async () => {
-        // Risolve il film con il matcher stretto: imdbId prima, poi
-        // title/year/director/country. Evita di mostrare "Wonder Woman"
-        // quando l'utente clicca su "Wonder".
-        const movieResult = m.tmdbId
-            ? { id: m.tmdbId }
-            : await findBestMovieMatch({
-                title: m.title,
-                originalTitle: m.originalTitle,
-                year: m.year,
-                director: m.director,
-                country: m.production_countries?.[0]?.iso_3166_1,
-                imdbId: m.imdbId
-            });
-        if (movieResult?.id) {
-            showFullMovieDetails(movieResult.id, { imdbId: m.imdbId || null });
-        } else {
-            alert('Movie not found on TMDB / IMDb.');
+        // resolveSavedMovieToTmdb è SEMPRE chiamato anche se m.tmdbId esiste:
+        //   1) imdbId (autoritativo)
+        //   2) tmdbId salvato, MA solo se il titolo combacia ancora (per
+        //      record legacy con tmdbId sbagliato)
+        //   3) match stretto su titolo+anno+paese+regista
+        // Niente fallback al primo risultato di ricerca: meglio errore
+        // esplicito che metadata sbagliata ("Wonder" ≠ "Wonder Woman").
+        fullDetailsBtn.disabled = true;
+        try {
+            const resolved = await resolveSavedMovieToTmdb(m);
+            if (resolved?.id) {
+                const resolvedImdb = resolved.external_ids?.imdb_id || resolved.imdb_id || m.imdbId || null;
+                // Se la risoluzione ha corretto un tmdbId/imdbId sbagliato,
+                // aggiorniamo il record salvato in modo che le prossime
+                // aperture siano istantanee e già corrette.
+                const patch = {};
+                if (resolved.id && String(resolved.id) !== String(m.tmdbId || '')) patch.tmdbId = resolved.id;
+                if (resolvedImdb && resolvedImdb !== m.imdbId) patch.imdbId = resolvedImdb;
+                if (Object.keys(patch).length && currentMovieId && currentUser) {
+                    try {
+                        await updateDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId), patch);
+                        updateMovieInCache(currentMovieId, patch);
+                    } catch (_) { /* best effort */ }
+                }
+                showFullMovieDetails(resolved.id, { imdbId: resolvedImdb });
+            } else {
+                showToast(`Impossibile risolvere "${m.title}" su IMDb/TMDB`, 4500);
+            }
+        } finally {
+            fullDetailsBtn.disabled = false;
         }
     });
     document.getElementById('reviewContainer').insertAdjacentElement('afterend', fullDetailsBtn);
@@ -1202,28 +1216,20 @@ async function showSimilarMovies(id){
     const current = movies.find(m => m.id === id);
     if (!current) return;
 
-    // Legacy movies in the archive may lack tmdbId — resolve it con il
-    // matcher stretto, usando tutti i campi disponibili per scartare
-    // collisioni (es. "Wonder" 2017 ≠ "Wonder Woman" 2017).
-    let tmdbId = current.tmdbId;
+    // Risolvi SEMPRE con il validator: imdbId → tmdbId validato → matcher
+    // stretto. Niente fallback al primo risultato. Anche se il record ha già
+    // un tmdbId, lo validiamo (potrebbe puntare al film sbagliato per
+    // record legacy importati con la vecchia logica).
+    let tmdbId = null;
+    try {
+        const resolved = await resolveSavedMovieToTmdb(current);
+        tmdbId = resolved?.id || null;
+    } catch (err) {
+        console.warn('TMDB lookup for similar failed:', err);
+    }
     if (!tmdbId) {
-        try {
-            const lookup = await findBestMovieMatch({
-                title: current.title,
-                originalTitle: current.originalTitle,
-                year: current.year,
-                director: current.director,
-                country: current.production_countries?.[0]?.iso_3166_1,
-                imdbId: current.imdbId
-            });
-            tmdbId = lookup?.id || null;
-        } catch (err) {
-            console.warn('TMDB lookup for similar failed:', err);
-        }
-        if (!tmdbId) {
-            console.info('[similar] no tmdbId for', current.title);
-            return;
-        }
+        console.info('[similar] no tmdbId for', current.title);
+        return;
     }
 
     let results = [];

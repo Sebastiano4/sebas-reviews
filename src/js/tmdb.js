@@ -203,7 +203,7 @@ export async function findBestMovieMatch({
   director,
   imdbId
 } = {}) {
-  // 1) IMDb id → match diretto (nessun dubbio possibile).
+  // 1) IMDb id → match diretto, fonte di verità assoluta.
   if (imdbId) {
     const hit = await findMovieByImdbId(imdbId);
     if (hit?.id) return { ...hit, _matchedBy: 'imdb_id', _score: Infinity };
@@ -219,67 +219,79 @@ export async function findBestMovieMatch({
     ? normalizeTitle(director)
     : null;
 
-  // Cerca con anno (più preciso). Se vuoto, fallback senza anno.
-  let candidates = [];
+  // Raccogli candidati: con anno (più preciso) e senza (fallback) → unione.
+  // Cerchiamo in BOTH per non perdere casi con date strane.
+  const pool = new Map(); // tmdb id → result
   if (targetYear) {
     const r = await searchMoviesWithYear(title, targetYear, 1).catch(() => null);
-    if (r?.results) candidates = r.results.slice();
+    (r?.results || []).forEach(c => { if (c?.id) pool.set(c.id, c); });
   }
-  if (candidates.length === 0) {
+  {
     const r = await searchMovies(title, 1).catch(() => null);
-    if (r?.results) candidates = r.results.slice();
+    (r?.results || []).forEach(c => { if (c?.id) pool.set(c.id, c); });
   }
-  if (!candidates.length) return null;
+  if (pool.size === 0) return null;
 
-  // Scoring
-  const scored = [];
-  for (const c of candidates) {
+  // FASE 1: filtra solo i candidati con TITOLO ESATTO (title o original_title).
+  // Niente substring/inclusione: "wonder" non deve mai accoppiarsi a "wonder
+  // woman", "the return" non deve mai accoppiarsi a "the return of the king".
+  const exactMatches = [];
+  for (const c of pool.values()) {
     const ct = normalizeTitle(c.title);
     const co = normalizeTitle(c.original_title);
-    let score = 0;
-    let exactTitle = false;
+    const isExact =
+      ct === normTitle ||
+      co === normTitle ||
+      (normOriginal && (ct === normOriginal || co === normOriginal));
+    if (isExact) exactMatches.push(c);
+  }
+  if (!exactMatches.length) return null; // nessun match esatto → fallisci
 
-    if (ct === normTitle || co === normTitle) {
-      score += 100;
-      exactTitle = true;
-    } else if (normOriginal && (ct === normOriginal || co === normOriginal)) {
-      score += 90;
-      exactTitle = true;
-    } else if (ct.includes(normTitle) || normTitle.includes(ct)) {
-      score += 25;
-    } else {
-      continue; // titoli completamente diversi: scartiamo subito
-    }
-
+  // FASE 2: scoring tra i candidati a titolo esatto.
+  const scored = exactMatches.map(c => {
+    let score = 100; // baseline (titolo esatto)
+    let yearScore = 0;
     if (targetYear && c.release_date) {
       const cy = parseInt(c.release_date.split('-')[0], 10);
       if (Number.isFinite(cy)) {
-        if (cy === targetYear) score += 50;
-        else if (Math.abs(cy - targetYear) === 1) score += 20;
-        else if (Math.abs(cy - targetYear) <= 3) score += 5;
-        else score -= 40;
+        if (cy === targetYear) yearScore = 80;
+        else if (Math.abs(cy - targetYear) === 1) yearScore = 40;
+        else if (Math.abs(cy - targetYear) <= 2) yearScore = 10;
+        else yearScore = -120; // anno molto diverso → quasi sicuramente sbagliato
       }
     }
-
+    score += yearScore;
     if (targetCountry && Array.isArray(c.origin_country) && c.origin_country.length) {
       const codes = c.origin_country.map(x => String(x).toLowerCase());
-      if (codes.includes(targetCountry)) score += 25;
+      if (codes.includes(targetCountry)) score += 40;
     }
-
-    // Popolarità come tie-breaker leggero
-    score += Math.min(10, Math.log10((c.vote_count || 0) + 1) * 2);
-
-    scored.push({ ...c, _score: score, _exactTitle: exactTitle });
-  }
-
-  if (!scored.length) return null;
+    score += Math.min(8, Math.log10((c.vote_count || 0) + 1) * 1.5);
+    return { ...c, _score: score, _yearScore: yearScore };
+  });
   scored.sort((a, b) => b._score - a._score);
 
-  // Se il director è noto, verifica i primi 3 candidati tramite /credits.
-  // Saltiamo questa verifica quando il top candidate ha già uno score molto
-  // alto (titolo esatto + anno esatto + paese) per non sprecare quota API.
-  if (targetDirector && scored[0]._score < 170) {
-    for (let i = 0; i < Math.min(scored.length, 3); i++) {
+  // FASE 3: validazione anno (se fornito). Niente match con anno > 2 di
+  // distanza, e MAI senza un candidato che abbia un anno coerente quando
+  // l'anno è critico per la disambiguazione.
+  if (targetYear) {
+    const yearOk = scored.filter(c => {
+      const cy = c.release_date ? parseInt(c.release_date.split('-')[0], 10) : NaN;
+      return Number.isFinite(cy) && Math.abs(cy - targetYear) <= 2;
+    });
+    if (!yearOk.length) {
+      // Anno fornito ma nessun candidato esatto entro ±2 anni → niente match.
+      return null;
+    }
+    // Riduciamo i candidati a quelli con anno coerente.
+    scored.length = 0;
+    scored.push(...yearOk);
+    scored.sort((a, b) => b._score - a._score);
+  }
+
+  // FASE 4: validazione director (se fornito). Se più candidati a titolo
+  // esatto + anno, il regista è il tie-breaker definitivo.
+  if (targetDirector && scored.length > 1) {
+    for (let i = 0; i < Math.min(scored.length, 4); i++) {
       const cand = scored[i];
       try {
         const credits = await getMovieCredits(cand.id);
@@ -293,31 +305,103 @@ export async function findBestMovieMatch({
           targetDirector.includes(d)
         );
         if (matchesDir) {
-          return { ...cand, _matchedBy: 'director', _score: cand._score + 200 };
+          return { ...cand, _matchedBy: 'director' };
         }
-      } catch (e) { /* ignora errori singoli */ }
+      } catch (_) { /* ignora errori singoli */ }
     }
+    // Director fornito ma nessun candidato lo matcha → meglio nessun risultato
+    // che uno sbagliato.
+    return null;
   }
 
-  const top = scored[0];
-  // Soglia minima: titolo esatto richiesto, o score generalmente alto.
-  if (!top._exactTitle && top._score < 60) return null;
-
-  return { ...top, _matchedBy: top._exactTitle ? 'title+year' : 'fuzzy' };
+  return { ...scored[0], _matchedBy: 'title+year' };
 }
 
 /**
- * Compat: vecchia firma. Ora delega al matcher stretto per evitare
- * collisioni con titoli simili. Restituisce comunque un risultato anche
- * quando il punteggio è basso, per mantenere il comportamento storico
- * nei flussi che non passano per il nuovo path.
+ * Validazione di un riferimento TMDB salvato in Firestore: garantisce che
+ * il `tmdbId` memorizzato corrisponda davvero al film salvato (titolo
+ * normalizzato uguale). Necessario per i record legacy in cui il tmdbId
+ * fu assegnato dalla vecchia logica fuzzy e oggi punta a un film sbagliato.
+ *
+ * Restituisce { id, title, ... } se valido, null se va re-risolto da zero.
+ */
+export async function validateStoredTmdbId(savedMovie) {
+  if (!savedMovie || !savedMovie.tmdbId) return null;
+  try {
+    const det = await getMovieDetails(savedMovie.tmdbId, 'external_ids');
+    if (!det || !det.id) return null;
+    const saved = normalizeTitle(savedMovie.title);
+    const candTitle = normalizeTitle(det.title);
+    const candOriginal = normalizeTitle(det.original_title);
+    const matchesTitle = saved && (candTitle === saved || candOriginal === saved);
+
+    // Year sanity: se entrambi gli anni sono noti e differiscono di oltre 2
+    // anni, è probabile che il tmdbId punti al film sbagliato.
+    if (savedMovie.year && det.release_date) {
+      const savedYear = parseInt(savedMovie.year, 10);
+      const candYear = parseInt(det.release_date.split('-')[0], 10);
+      if (Number.isFinite(savedYear) && Number.isFinite(candYear)
+          && Math.abs(savedYear - candYear) > 2) {
+        return null;
+      }
+    }
+
+    if (matchesTitle) return det;
+
+    // Se l'imdb_id del record TMDB combacia con l'imdb salvato → fidiamoci.
+    const savedImdb = savedMovie.imdbId || savedMovie.imdb_id;
+    const candImdb = det.external_ids?.imdb_id || det.imdb_id;
+    if (savedImdb && candImdb && savedImdb === candImdb) return det;
+
+    return null; // titolo non corrisponde → re-risolvi
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Risolve un film salvato in Firestore al record TMDB corretto, sempre.
+ * Ordine di priorità (NON c'è fallback al "primo risultato"):
+ *   1. IMDb id (autoritativo)
+ *   2. tmdbId salvato, MA solo se il titolo TMDB combacia
+ *   3. Match stretto su titolo + anno + paese + regista
+ *   → null se nessuno dei precedenti è affidabile
+ *
+ * Usare questa funzione PRIMA di chiamare showFullMovieDetails / aprire il
+ * trailer / cercare film simili. Evita che dati legacy con tmdbId sbagliato
+ * propaghino l'errore lungo tutta la UX.
+ */
+export async function resolveSavedMovieToTmdb(savedMovie) {
+  if (!savedMovie) return null;
+  // 1) IMDb id
+  const imdb = savedMovie.imdbId || savedMovie.imdb_id;
+  if (imdb) {
+    const hit = await findMovieByImdbId(imdb);
+    if (hit?.id) return hit;
+  }
+  // 2) tmdbId salvato — validato
+  if (savedMovie.tmdbId) {
+    const validated = await validateStoredTmdbId(savedMovie);
+    if (validated?.id) return validated;
+  }
+  // 3) Matcher stretto
+  return findBestMovieMatch({
+    title: savedMovie.title,
+    originalTitle: savedMovie.originalTitle,
+    year: savedMovie.year,
+    director: savedMovie.director,
+    country: savedMovie.production_countries?.[0]?.iso_3166_1,
+    imdbId: imdb
+  });
+}
+
+/**
+ * Compat: vecchia firma. SOLO match stretto, nessun fallback al primo
+ * risultato di ricerca. Restituisce null quando il matcher non è certo —
+ * preferiamo "nessun risultato" a "risultato sbagliato".
  */
 export async function getFirstMovieByTitleYear(title, year) {
-  const strict = await findBestMovieMatch({ title, year });
-  if (strict) return strict;
-  // Fallback morbido: vecchio comportamento (primo risultato della ricerca).
-  const data = await searchMoviesWithYear(title, year, 1);
-  return data?.results?.[0] || null;
+  return findBestMovieMatch({ title, year });
 }
 
 async function searchPerson(name, page = 1) {

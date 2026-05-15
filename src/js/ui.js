@@ -13,7 +13,7 @@ import { renderProfileSkeleton, showToast } from './utils.js';
 import { auth, db, storage } from './firebase.js';
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 import { openModal, closeModal } from './modal-manager.js';
-import { fetchImdbRating, findBestMovieMatch } from './tmdb.js';
+import { fetchImdbRating, findBestMovieMatch, resolveSavedMovieToTmdb } from './tmdb.js';
 
 // --- UI MODULE: Modal Management and Theme Logic ---
 
@@ -444,23 +444,12 @@ function normalizeIso3(iso2) {
 
 /** Elabora un singolo film: search (se serve) → dettagli/credits → OMDb → save. */
 async function repairOneMovie(movie, currentUser) {
-    // 1. Risolvi tmdbId. Se non lo abbiamo già, usa il matcher stretto:
-    //    imdb_id (se presente) → titolo + anno + director + country. Senza
-    //    questa logica, durante il "repair" si rischia di sovrascrivere i
-    //    metadati di un film con quelli di un omonimo più popolare (es.
-    //    "The Return" 2003 → "The Return of the King").
-    let tmdbId = movie.tmdbId;
-    if (!tmdbId) {
-        const lookup = await findBestMovieMatch({
-            title: movie.title,
-            originalTitle: movie.originalTitle,
-            year: movie.year,
-            director: movie.director,
-            country: movie.production_countries?.[0]?.iso_3166_1,
-            imdbId: movie.imdb_id || movie.imdbId
-        });
-        tmdbId = lookup?.id || null;
-    }
+    // Risolvi SEMPRE il tmdbId con il validator (imdbId → tmdbId validato →
+    // matcher stretto). Anche un record con tmdbId pre-esistente viene
+    // rivalidato: i record legacy potrebbero puntare al film sbagliato e il
+    // repair è proprio il punto giusto per correggerli.
+    const resolved = await resolveSavedMovieToTmdb(movie);
+    const tmdbId = resolved?.id || null;
     if (!tmdbId) {
         throw new Error('no-tmdb-match');
     }
@@ -802,18 +791,10 @@ if (trailerBtn) {
             }
             const snap = await getDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
             const m = snap.data();
-            // Matcher stretto: usa imdbId/director/country quando disponibili
-            // così non finiamo a mostrare il trailer di un film omonimo.
-            const movieResult = m.tmdbId
-                ? { id: m.tmdbId }
-                : await findBestMovieMatch({
-                    title: m.title,
-                    originalTitle: m.originalTitle,
-                    year: m.year,
-                    director: m.director,
-                    country: m.production_countries?.[0]?.iso_3166_1,
-                    imdbId: m.imdb_id || m.imdbId
-                });
+            // Validatore: imdbId autoritativo → tmdbId validato (non si fida
+            // ciecamente di id legacy) → matcher stretto. Nessun fallback
+            // al primo risultato di ricerca.
+            const movieResult = await resolveSavedMovieToTmdb(m);
             if (movieResult?.id) {
                 const vData = await getMovieVideos(movieResult.id);
                 const t = vData.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
