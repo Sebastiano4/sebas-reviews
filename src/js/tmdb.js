@@ -94,10 +94,10 @@ export async function getMovieCredits(movieId) {
 }
 
 export async function getMovieDetailsWithCredits(movieId) {
-  const [movie, credits] = await Promise.all([
-    getMovieDetails(movieId),
-    getMovieCredits(movieId)
-  ]);
+  // append_to_response evita una round-trip aggiuntiva e ci dà subito anche
+  // imdb_id + external_ids, indispensabili per il matching IMDb-first.
+  const movie = await getMovieDetails(movieId, 'credits,external_ids');
+  const credits = movie.credits || { cast: [], crew: [] };
   return { movie, credits };
 }
 
@@ -120,7 +120,202 @@ export async function getSimilarMovies(movieId, page = 1) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// MATCHING ACCURATO — evita collisioni tra titoli simili (es. "Wonder" vs
+// "Wonder Woman", "The Return" 2003 russo vs "The Return of the King")
+// ---------------------------------------------------------------------------
+
+function normalizeTitle(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[‘’‚‛'`]/g, "'")
+    .replace(/[“”„‟"]/g, '"')
+    .replace(/&/g, 'and')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeCountry(c) {
+  if (!c) return null;
+  const v = String(c).trim().toLowerCase();
+  if (!v) return null;
+  // Mappa nomi comuni → codice ISO-3166-1 a 2 lettere usato da TMDB.
+  const map = {
+    'usa': 'us', 'united states': 'us', 'united states of america': 'us', 'us': 'us', 'u.s.': 'us',
+    'uk': 'gb', 'united kingdom': 'gb', 'great britain': 'gb', 'england': 'gb', 'gb': 'gb',
+    'russia': 'ru', 'russian federation': 'ru', 'ussr': 'ru', 'soviet union': 'ru', 'ru': 'ru',
+    'italy': 'it', 'italia': 'it', 'it': 'it',
+    'france': 'fr', 'francia': 'fr', 'fr': 'fr',
+    'germany': 'de', 'deutschland': 'de', 'de': 'de',
+    'spain': 'es', 'españa': 'es', 'es': 'es',
+    'japan': 'jp', 'jp': 'jp',
+    'china': 'cn', 'cn': 'cn',
+    'korea': 'kr', 'south korea': 'kr', 'kr': 'kr',
+    'india': 'in', 'in': 'in',
+    'mexico': 'mx', 'mx': 'mx',
+    'brazil': 'br', 'br': 'br',
+    'canada': 'ca', 'ca': 'ca',
+    'australia': 'au', 'au': 'au',
+    'argentina': 'ar', 'ar': 'ar'
+  };
+  if (map[v]) return map[v];
+  if (/^[a-z]{2}$/i.test(v)) return v;
+  return v;
+}
+
+/**
+ * Risolve un IMDb id a un record TMDB tramite l'endpoint /find.
+ * È il match più affidabile possibile: identifier univoco IMDb → TMDB.
+ */
+export async function findMovieByImdbId(imdbId) {
+  if (!imdbId || typeof imdbId !== 'string' || !imdbId.startsWith('tt')) return null;
+  try {
+    const data = await tmdbFetch(`/find/${imdbId}`, {
+      external_source: 'imdb_id',
+      language: 'en-US'
+    });
+    return data?.movie_results?.[0] || null;
+  } catch (err) {
+    console.warn('[findMovieByImdbId] failed for', imdbId, err);
+    return null;
+  }
+}
+
+/**
+ * Trova la migliore corrispondenza TMDB applicando regole strette di matching.
+ * Tiene conto di: imdbId (priorità assoluta), titolo esatto, titolo originale,
+ * anno (±1), paese di produzione e regista (verificato via /credits sui top 3).
+ *
+ * Restituisce un oggetto TMDB arricchito con `_matchedBy` e `_score`, oppure
+ * null se nessun candidato raggiunge la soglia minima di affidabilità.
+ *
+ * NOTE: la validazione tramite director costa una chiamata /credits aggiuntiva
+ * per ogni candidato controllato (max 3) — è il prezzo per evitare falsi
+ * positivi su titoli generici. Quando il director non è noto, usiamo solo
+ * titolo + anno + paese, che già copre la grande maggioranza dei casi.
+ */
+export async function findBestMovieMatch({
+  title,
+  originalTitle,
+  year,
+  country,
+  director,
+  imdbId
+} = {}) {
+  // 1) IMDb id → match diretto (nessun dubbio possibile).
+  if (imdbId) {
+    const hit = await findMovieByImdbId(imdbId);
+    if (hit?.id) return { ...hit, _matchedBy: 'imdb_id', _score: Infinity };
+  }
+
+  if (!title || !String(title).trim()) return null;
+
+  const normTitle = normalizeTitle(title);
+  const normOriginal = originalTitle ? normalizeTitle(originalTitle) : null;
+  const targetYear = year ? parseInt(year, 10) : null;
+  const targetCountry = normalizeCountry(country);
+  const targetDirector = director && director !== 'Unknown'
+    ? normalizeTitle(director)
+    : null;
+
+  // Cerca con anno (più preciso). Se vuoto, fallback senza anno.
+  let candidates = [];
+  if (targetYear) {
+    const r = await searchMoviesWithYear(title, targetYear, 1).catch(() => null);
+    if (r?.results) candidates = r.results.slice();
+  }
+  if (candidates.length === 0) {
+    const r = await searchMovies(title, 1).catch(() => null);
+    if (r?.results) candidates = r.results.slice();
+  }
+  if (!candidates.length) return null;
+
+  // Scoring
+  const scored = [];
+  for (const c of candidates) {
+    const ct = normalizeTitle(c.title);
+    const co = normalizeTitle(c.original_title);
+    let score = 0;
+    let exactTitle = false;
+
+    if (ct === normTitle || co === normTitle) {
+      score += 100;
+      exactTitle = true;
+    } else if (normOriginal && (ct === normOriginal || co === normOriginal)) {
+      score += 90;
+      exactTitle = true;
+    } else if (ct.includes(normTitle) || normTitle.includes(ct)) {
+      score += 25;
+    } else {
+      continue; // titoli completamente diversi: scartiamo subito
+    }
+
+    if (targetYear && c.release_date) {
+      const cy = parseInt(c.release_date.split('-')[0], 10);
+      if (Number.isFinite(cy)) {
+        if (cy === targetYear) score += 50;
+        else if (Math.abs(cy - targetYear) === 1) score += 20;
+        else if (Math.abs(cy - targetYear) <= 3) score += 5;
+        else score -= 40;
+      }
+    }
+
+    if (targetCountry && Array.isArray(c.origin_country) && c.origin_country.length) {
+      const codes = c.origin_country.map(x => String(x).toLowerCase());
+      if (codes.includes(targetCountry)) score += 25;
+    }
+
+    // Popolarità come tie-breaker leggero
+    score += Math.min(10, Math.log10((c.vote_count || 0) + 1) * 2);
+
+    scored.push({ ...c, _score: score, _exactTitle: exactTitle });
+  }
+
+  if (!scored.length) return null;
+  scored.sort((a, b) => b._score - a._score);
+
+  // Se il director è noto, verifica i primi 3 candidati tramite /credits.
+  // Saltiamo questa verifica quando il top candidate ha già uno score molto
+  // alto (titolo esatto + anno esatto + paese) per non sprecare quota API.
+  if (targetDirector && scored[0]._score < 170) {
+    for (let i = 0; i < Math.min(scored.length, 3); i++) {
+      const cand = scored[i];
+      try {
+        const credits = await getMovieCredits(cand.id);
+        const dirs = (credits?.crew || [])
+          .filter(p => p.job === 'Director')
+          .map(p => normalizeTitle(p.name));
+        if (!dirs.length) continue;
+        const matchesDir = dirs.some(d =>
+          d === targetDirector ||
+          d.includes(targetDirector) ||
+          targetDirector.includes(d)
+        );
+        if (matchesDir) {
+          return { ...cand, _matchedBy: 'director', _score: cand._score + 200 };
+        }
+      } catch (e) { /* ignora errori singoli */ }
+    }
+  }
+
+  const top = scored[0];
+  // Soglia minima: titolo esatto richiesto, o score generalmente alto.
+  if (!top._exactTitle && top._score < 60) return null;
+
+  return { ...top, _matchedBy: top._exactTitle ? 'title+year' : 'fuzzy' };
+}
+
+/**
+ * Compat: vecchia firma. Ora delega al matcher stretto per evitare
+ * collisioni con titoli simili. Restituisce comunque un risultato anche
+ * quando il punteggio è basso, per mantenere il comportamento storico
+ * nei flussi che non passano per il nuovo path.
+ */
 export async function getFirstMovieByTitleYear(title, year) {
+  const strict = await findBestMovieMatch({ title, year });
+  if (strict) return strict;
+  // Fallback morbido: vecchio comportamento (primo risultato della ricerca).
   const data = await searchMoviesWithYear(title, year, 1);
   return data?.results?.[0] || null;
 }

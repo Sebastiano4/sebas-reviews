@@ -26,7 +26,8 @@ const ALLOWED_TMDB_PATHS = [
   /^\/movie\/\d+\/videos$/,
   /^\/movie\/\d+\/similar$/,
   /^\/movie\/\d+\/recommendations$/,
-  /^\/genre\/movie\/list$/
+  /^\/genre\/movie\/list$/,
+  /^\/find\/tt\d+$/   // lookup IMDb id → record TMDB (matching stretto)
 ];
 
 function isAllowedTmdbPath(path) {

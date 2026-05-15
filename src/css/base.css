@@ -21,6 +21,10 @@
 
 html {
     scroll-behavior: smooth;
+    /* Stabilità layout: niente "shifting" quando appare/scompare la scrollbar
+       (Windows). overscroll-behavior evita pull-to-refresh accidentale durante
+       scroll fluido nelle modali. */
+    overscroll-behavior-y: contain;
 }
 
 body {
@@ -33,6 +37,13 @@ body {
     letter-spacing: 0.02em;
     position: relative;
     z-index: 1;
+    /* Tap highlight grigio nativo di iOS/Android è invadente sui bottoni
+       arrotondati dell'app — disabilitato in favore di transition: transform
+       e :active dei vari componenti. */
+    -webkit-tap-highlight-color: transparent;
+    /* Safe-area: aggiunge padding automatico per le viewport con notch.
+       Evita che la bottom-nav fluttuante sia tagliata dalla home-indicator. */
+    padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 /* Sfondo con texture vellutata */

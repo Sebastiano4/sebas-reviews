@@ -112,17 +112,24 @@
         left: 0;
         max-height: 95vh;
         overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
         animation: slideUp 0.3s ease-out;
+        /* Spazio per home-indicator + safe area su iPhone notched */
+        padding-bottom: max(2rem, env(safe-area-inset-bottom, 0));
     }
 
+    /* Vault: stesso pattern slide-up degli altri modali per coerenza visiva.
+       Prima usava un overlay centrato (border-radius 24px su tutti i lati,
+       position relative) — fuori carattere rispetto al resto dell'app. */
     #statsModal .modal-content {
-        position: relative;
-        bottom: auto;
-        left: auto;
-        border-radius: 24px;
-        max-height: 90vh;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        border-radius: 20px 20px 0 0;
+        max-height: 94vh;
         overflow-y: auto;
-        animation: fadeInUp 0.3s ease-out;
+        animation: slideUp 0.3s ease-out;
     }
 
     /* --- VAULT MAP --- */

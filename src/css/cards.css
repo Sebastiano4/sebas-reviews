@@ -89,6 +89,17 @@ main#app::before {
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     animation: cardAppear 0.4s ease-out;
+    /* Mobile: feedback nativo "press" senza highlight grigio. */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+/* Tap feedback su touch device — sostituisce :hover che non funziona. */
+@media (hover: none) and (pointer: coarse) {
+    .movie-card:active {
+        transform: scale(0.97);
+        transition: transform 0.1s ease;
+    }
 }
 
 @keyframes cardAppear {

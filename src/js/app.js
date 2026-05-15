@@ -16,6 +16,8 @@ import {
   getGenreList,
   getMovieVideos,
   getFirstMovieByTitleYear,
+  findBestMovieMatch,
+  findMovieByImdbId,
   getSimilarMovies,
   fetchImdbRating
 } from './tmdb.js';
@@ -437,6 +439,10 @@ async function fetchMovieDetailsAndSelect(movieId) {
         runtime: movie.runtime ? `${movie.runtime} min` : 'N/A',
         cast: castArray,
         tmdbId: movieId,
+        // IMDb-first: salviamo l'id IMDb in modo che i prossimi accessi
+        // possano risolvere il film senza più ricerche per titolo (zero ambiguità).
+        imdbId: movie.external_ids?.imdb_id || movie.imdb_id || null,
+        originalTitle: movie.original_title || movie.title || '',
         production_countries: Array.isArray(movie.production_countries) ? movie.production_countries : []
     };
 
@@ -468,6 +474,8 @@ document.getElementById('movieForm').onsubmit = async(e)=>{
         runtime: currentSelectedMovieExtras.runtime || 'N/A',
         cast: currentSelectedMovieExtras.cast || [],
         tmdbId: currentSelectedMovieExtras.tmdbId || null,
+        imdbId: currentSelectedMovieExtras.imdbId || null,
+        originalTitle: currentSelectedMovieExtras.originalTitle || '',
         production_countries: Array.isArray(currentSelectedMovieExtras.production_countries) ? currentSelectedMovieExtras.production_countries : []
     };
 
@@ -1099,11 +1107,23 @@ async function openReview(id, movieData = null) {
     fullDetailsBtn.style.marginTop = '10px';
     fullDetailsBtn.innerText = '📊 Full Details';
     fullDetailsBtn.addEventListener('click', async () => {
-        const movieResult = await getFirstMovieByTitleYear(m.title, m.year);
-        if (movieResult) {
-            showFullMovieDetails(movieResult.id);
+        // Risolve il film con il matcher stretto: imdbId prima, poi
+        // title/year/director/country. Evita di mostrare "Wonder Woman"
+        // quando l'utente clicca su "Wonder".
+        const movieResult = m.tmdbId
+            ? { id: m.tmdbId }
+            : await findBestMovieMatch({
+                title: m.title,
+                originalTitle: m.originalTitle,
+                year: m.year,
+                director: m.director,
+                country: m.production_countries?.[0]?.iso_3166_1,
+                imdbId: m.imdbId
+            });
+        if (movieResult?.id) {
+            showFullMovieDetails(movieResult.id, { imdbId: m.imdbId || null });
         } else {
-            alert('Movie not found on TMDB.');
+            alert('Movie not found on TMDB / IMDb.');
         }
     });
     document.getElementById('reviewContainer').insertAdjacentElement('afterend', fullDetailsBtn);
@@ -1171,11 +1191,20 @@ async function showSimilarMovies(id){
     const current = movies.find(m => m.id === id);
     if (!current) return;
 
-    // Legacy movies in the archive may lack tmdbId — resolve it by title/year.
+    // Legacy movies in the archive may lack tmdbId — resolve it con il
+    // matcher stretto, usando tutti i campi disponibili per scartare
+    // collisioni (es. "Wonder" 2017 ≠ "Wonder Woman" 2017).
     let tmdbId = current.tmdbId;
     if (!tmdbId) {
         try {
-            const lookup = await getFirstMovieByTitleYear(current.title, current.year);
+            const lookup = await findBestMovieMatch({
+                title: current.title,
+                originalTitle: current.originalTitle,
+                year: current.year,
+                director: current.director,
+                country: current.production_countries?.[0]?.iso_3166_1,
+                imdbId: current.imdbId
+            });
             tmdbId = lookup?.id || null;
         } catch (err) {
             console.warn('TMDB lookup for similar failed:', err);
@@ -1298,27 +1327,44 @@ document.getElementById('repairMetadataBtn')?.addEventListener('click', async ()
         statusEl.innerText = `Repairing: ${movie.title} (${completed + 1} of ${total})`;
         barEl.style.width = `${(completed / total) * 100}%`;
         try {
-            const sData = await searchMoviesWithYear(movie.title, movie.year);
-            if (sData.results?.length) {
-                const tmdb = sData.results[0];
-                const [detRes, credRes] = await Promise.all([
-                    getMovieDetails(tmdb.id),
-                    getMovieCredits(tmdb.id)
-                ]);
+            // Matcher stretto: usa imdbId/director/country se già presenti
+            // sul record, così evitiamo di sostituire un metadato corretto
+            // con uno preso da un film omonimo (es. "Wonder" ≠ "Wonder Woman").
+            const tmdb = await findBestMovieMatch({
+                title: movie.title,
+                originalTitle: movie.originalTitle,
+                year: movie.year,
+                director: movie.director,
+                country: movie.production_countries?.[0]?.iso_3166_1,
+                imdbId: movie.imdbId
+            });
+            if (tmdb?.id) {
+                const detRes = await getMovieDetails(tmdb.id, 'credits,external_ids');
+                const credRes = detRes.credits || { cast: [], crew: [] };
                 const director = credRes.crew?.find(p => p.job === 'Director')?.name || 'Unknown';
                 const genres = detRes.genres?.map(g => g.name).join(', ') || '';
                 const runtime = detRes.runtime ? `${detRes.runtime} min` : 'N/A';
                 const year = detRes.release_date?.split('-')[0] || movie.year;
                 const cast = credRes.cast?.slice(0, 10).map(a => a.name) || [];
+                const imdbId = detRes.external_ids?.imdb_id || detRes.imdb_id || movie.imdbId || null;
+                const originalTitle = detRes.original_title || movie.originalTitle || '';
+                const production_countries = Array.isArray(detRes.production_countries)
+                    ? detRes.production_countries
+                    : (movie.production_countries || []);
 
-                await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), {
+                const patch = {
                     director,
                     genres,
                     runtime,
                     year,
-                    cast   // 👈 aggiunto il cast
-                });
-                updateMovieInCache(movie.id, { director, genres, runtime, year, cast });
+                    cast,
+                    tmdbId: tmdb.id,
+                    imdbId,
+                    originalTitle,
+                    production_countries
+                };
+                await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), patch);
+                updateMovieInCache(movie.id, patch);
             }
         } catch (err) {
             console.error(`Error repairing ${movie.title}:`, err);
@@ -1434,25 +1480,27 @@ if (csvFileInput) csvFileInput.onchange = async (e) => {
                 statusEl.innerText = `Importing: ${row.Name} (${completed + 1} of ${total})`;
                 barEl.style.width = `${(completed / total) * 100}%`;
                 try {
-                    // Prima cerca il film
-                    const sData = await searchMoviesWithYear(row.Name, row.Year);
-                    if (sData.results?.length) {
-                        const tmdb = sData.results[0];
-                        // Ottieni dettagli completi e crediti
-                        const [detRes, credRes] = await Promise.all([
-                            getMovieDetails(tmdb.id),
-                            getMovieCredits(tmdb.id)
-                        ]);
+                    // Matching stretto su titolo+anno (Letterboxd non espone
+                    // director/country in CSV). Evita di assegnare "Wonder Woman"
+                    // a una riga "Wonder".
+                    const tmdb = await findBestMovieMatch({
+                        title: row.Name,
+                        year: row.Year
+                    });
+                    if (tmdb?.id) {
+                        const detRes = await getMovieDetails(tmdb.id, 'credits,external_ids');
+                        const credRes = detRes.credits || { cast: [], crew: [] };
                         const director = credRes.crew?.find(p => p.job === 'Director')?.name || 'Unknown';
                         const genres = detRes.genres?.map(g => g.name).join(', ') || '';
                         const runtime = detRes.runtime ? `${detRes.runtime} min` : 'N/A';
                         const year = detRes.release_date?.split('-')[0] || tmdb.release_date?.split('-')[0] || row.Year;
+                        const cast = credRes.cast?.slice(0, 10).map(a => a.name) || [];
 
                         await addDoc(collection(db, "users", currentUser.uid, "movies"), {
-                            title: tmdb.title,
-                            poster: `https://image.tmdb.org/t/p/w500${tmdb.poster_path}`,
+                            title: detRes.title || tmdb.title,
+                            poster: `https://image.tmdb.org/t/p/w500${detRes.poster_path || tmdb.poster_path}`,
                             backdrop: detRes.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detRes.backdrop_path}` : '',
-                            plot: tmdb.overview,
+                            plot: detRes.overview || tmdb.overview,
                             rating: row.Rating ? parseFloat(row.Rating) * 2 : null,
                             watchDate: row['Watched Date'] || null,
                             isWatchlist: !row.Rating,
@@ -1460,6 +1508,11 @@ if (csvFileInput) csvFileInput.onchange = async (e) => {
                             genres,
                             runtime,
                             year,
+                            cast,
+                            tmdbId: tmdb.id,
+                            imdbId: detRes.external_ids?.imdb_id || detRes.imdb_id || null,
+                            originalTitle: detRes.original_title || tmdb.original_title || '',
+                            production_countries: Array.isArray(detRes.production_countries) ? detRes.production_countries : [],
                             awards: [],
                             createdAt: serverTimestamp(),
                             order: Date.now() + completed // per ordinamento
@@ -1678,6 +1731,12 @@ async function showFullMovieDetails(tmdbId, imdbIdOrOpts = null) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     <span>Add to Your List</span>
                 </button>
+                ${imdbLink !== '#' ? `
+                    <a href="${escapeAttr(imdbLink)}" target="_blank" rel="noopener noreferrer" class="external-link-btn md-imdb-btn">
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3" ry="3"/><text x="12" y="15.6" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="7" font-weight="900" fill="#000">IMDb</text></svg>
+                        <span>IMDb${imdbActual ? ` · ${escapeHtml(imdbActual)}` : ''}</span>
+                    </a>
+                ` : ''}
                 <button class="external-link-btn" id="openFilmGrabBtn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                     <span>FilmGrab Stills</span>
@@ -1686,12 +1745,6 @@ async function showFullMovieDetails(tmdbId, imdbIdOrOpts = null) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                     <span>TMDB</span>
                 </a>
-                ${imdbLink !== '#' ? `
-                    <a href="${escapeAttr(imdbLink)}" target="_blank" rel="noopener noreferrer" class="external-link-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                        <span>IMDb</span>
-                    </a>
-                ` : ''}
             </div>
         `;
 
