@@ -211,6 +211,10 @@ function syncFilterUI(mode) {
         normalFilters.style.display = 'flex';
         exploreFilters.style.display = 'none';
     }
+    // Il bottone "Surprise me" ha senso solo nella watchlist (l'archivio è
+    // pieno di film già visti). Lo mostriamo dinamicamente in base al modo.
+    const surpriseBtn = document.getElementById('surpriseMeBtn');
+    if (surpriseBtn) surpriseBtn.hidden = mode !== 'watchlist';
 }
 
 async function renderGallery(){
@@ -1075,25 +1079,32 @@ async function openReview(id, movieData = null) {
     // Operazioni in background, senza bloccare l'interfaccia
     showSimilarMovies(id);
 
-    // Recupera i rating OMDb in silenzio
+    // Recupera i rating IMDb/RT/Metacritic via proxy server-side.
+    // Nessuna API key OMDb esposta al browser; risultati cached per 7 giorni
+    // in Firestore (condivisi tra utenti) + IndexedDB locale.
     if (omdbContainer) {
         try {
-            const omdbRes = await fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(m.title)}&y=${m.year}&apikey=3bab6459`);
-            const omdbData = await omdbRes.json();
-            if (omdbData.Response === 'True') {
-                const ratings = omdbData.Ratings || [];
-                const imdb = ratings.find(r => r.Source === 'Internet Movie Database');
-                const rt = ratings.find(r => r.Source === 'Rotten Tomatoes');
-                const meta = ratings.find(r => r.Source === 'Metacritic');
+            const data = await fetchImdbRating({
+                imdbId: m.imdbId || m.imdb_id,
+                title: m.title,
+                year: m.year
+            });
+            const ratings = Array.isArray(data?.ratings) ? data.ratings : [];
+            const imdbValue = data?.rating
+                ? { Source: 'Internet Movie Database', Value: `${data.rating}/10` }
+                : ratings.find(r => r.Source === 'Internet Movie Database');
+            const rt = ratings.find(r => r.Source === 'Rotten Tomatoes');
+            const meta = ratings.find(r => r.Source === 'Metacritic');
+            if (imdbValue || rt || meta) {
                 let html = '<div style="margin-top: 10px; font-size: 0.9rem; color: var(--text-muted);">';
-                if (imdb) html += `🎬 IMDb: ${escapeHtml(imdb.Value)} `;
+                if (imdbValue) html += `🎬 IMDb: ${escapeHtml(imdbValue.Value)} `;
                 if (rt) html += `🍅 Rotten Tomatoes: ${escapeHtml(rt.Value)} `;
                 if (meta) html += `📊 Metacritic: ${escapeHtml(meta.Value)}`;
                 html += '</div>';
                 omdbContainer.innerHTML = html;
             }
         } catch (e) {
-            console.warn('OMDb unreachable');
+            console.warn('OMDb proxy unreachable');
         }
     }
 
@@ -1279,6 +1290,182 @@ function startDynamicSpotlight() {
     }, 20000);
 }
 
+
+// ---------------------------------------------------------------------------
+// SURPRISE ME — random pick dalla watchlist con filtri (durata / genere /
+// decennio) + animazione reveal e reroll.
+//
+// Visibile solo in modalità watchlist (vedi syncFilterUI → syncSurpriseButton).
+// ---------------------------------------------------------------------------
+
+function syncSurpriseButton() {
+    const btn = document.getElementById('surpriseMeBtn');
+    if (!btn) return;
+    const mode = document.getElementById('viewMode')?.value;
+    btn.hidden = mode !== 'watchlist';
+}
+
+function parseRuntimeMinutes(rt) {
+    if (!rt) return null;
+    if (typeof rt === 'number') return rt;
+    const m = String(rt).match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
+}
+
+function getWatchlistCandidates(filters) {
+    const movies = cachedMovies || [];
+    const maxMin = filters.maxRuntime ? parseInt(filters.maxRuntime, 10) : null;
+    const genreFilter = filters.genre ? filters.genre.toLowerCase() : '';
+    const decadeStart = filters.decade ? parseInt(filters.decade, 10) : null;
+
+    return movies.filter(m => {
+        if (!m.isWatchlist) return false;
+        if (maxMin) {
+            const min = parseRuntimeMinutes(m.runtime);
+            // Se il runtime non è noto, NON lo escludiamo (l'utente preferisce
+            // candidati possibili a candidati vuoti). Saltarlo darebbe risultati
+            // a sorpresa troppo poveri.
+            if (min !== null && min > maxMin) return false;
+        }
+        if (genreFilter) {
+            const g = (m.genres || '').toLowerCase();
+            if (!g.includes(genreFilter)) return false;
+        }
+        if (decadeStart !== null) {
+            const y = parseInt(m.year, 10);
+            if (!Number.isFinite(y)) return false;
+            if (decadeStart === 1960) {
+                if (y > 1969) return false;
+            } else {
+                if (y < decadeStart || y > decadeStart + 9) return false;
+            }
+        }
+        return true;
+    });
+}
+
+let _lastSurpriseId = null;
+
+function pickRandomFromList(list) {
+    if (!list.length) return null;
+    if (list.length === 1) return list[0];
+    // Evita di mostrare lo stesso film due volte di fila quando possibile.
+    for (let i = 0; i < 5; i++) {
+        const pick = list[Math.floor(Math.random() * list.length)];
+        if (pick.id !== _lastSurpriseId) return pick;
+    }
+    return list[Math.floor(Math.random() * list.length)];
+}
+
+function renderSurpriseResult(movie) {
+    const empty = document.getElementById('surpriseEmpty');
+    const result = document.getElementById('surpriseResult');
+    const rerollBtn = document.getElementById('surpriseRerollBtn');
+    const openBtn = document.getElementById('surpriseOpenBtn');
+    const pickBtn = document.getElementById('surprisePickBtn');
+    if (!result) return;
+
+    if (!movie) {
+        empty.hidden = false;
+        result.hidden = true;
+        result.innerHTML = '';
+        rerollBtn.hidden = true;
+        openBtn.hidden = true;
+        pickBtn.querySelector('.surprise-pick-label').textContent = 'Pick a film';
+        empty.innerHTML = `
+            <span class="surprise-dice" aria-hidden="true">🎲</span>
+            <p>Nessun film nella watchlist corrisponde ai filtri scelti. Prova ad allargarli.</p>
+        `;
+        return;
+    }
+
+    _lastSurpriseId = movie.id;
+    empty.hidden = true;
+    result.hidden = false;
+    rerollBtn.hidden = false;
+    openBtn.hidden = false;
+    pickBtn.querySelector('.surprise-pick-label').textContent = 'Pick again';
+
+    const year = movie.year || '—';
+    const runtime = movie.runtime || '—';
+    const director = movie.director || '—';
+    const genres = movie.genres || '';
+    const plot = (movie.plot || '').slice(0, 240);
+    const poster = movie.poster || 'https://via.placeholder.com/500x750?text=No+Poster';
+
+    result.innerHTML = `
+        <div class="surprise-card">
+            <div class="surprise-card-poster">
+                <img src="${escapeAttr(poster)}" alt="${escapeAttr(movie.title)}" loading="lazy">
+            </div>
+            <div class="surprise-card-info">
+                <h3 class="surprise-card-title">${escapeHtml(movie.title)}</h3>
+                <p class="surprise-card-meta">${escapeHtml(director)} · ${escapeHtml(String(year))} · ${escapeHtml(runtime)}</p>
+                ${genres ? `<p class="surprise-card-genres">${escapeHtml(genres)}</p>` : ''}
+                ${plot ? `<p class="surprise-card-plot">${escapeHtml(plot)}${movie.plot && movie.plot.length > 240 ? '…' : ''}</p>` : ''}
+            </div>
+        </div>
+    `;
+    // Trigger reveal animation
+    requestAnimationFrame(() => {
+        const card = result.querySelector('.surprise-card');
+        if (card) {
+            card.classList.add('reveal');
+        }
+    });
+
+    openBtn.onclick = () => {
+        closeModal('surpriseModal', true);
+        window.openReview(movie.id, movie);
+    };
+}
+
+async function populateSurpriseGenreSelect() {
+    const select = document.getElementById('surpriseGenre');
+    if (!select) return;
+    const movies = await fetchAllMovies();
+    const genres = new Set();
+    movies.filter(m => m.isWatchlist).forEach(m => {
+        (m.genres || '').split(',').forEach(g => {
+            const trimmed = g.trim();
+            if (trimmed) genres.add(trimmed);
+        });
+    });
+    const sorted = Array.from(genres).sort();
+    const current = select.value;
+    select.innerHTML = '<option value="">Qualsiasi</option>' +
+        sorted.map(g => `<option value="${escapeAttr(g)}">${escapeHtml(g)}</option>`).join('');
+    if (current && sorted.includes(current)) select.value = current;
+}
+
+async function openSurpriseModal() {
+    await fetchAllMovies(); // popola cache
+    await populateSurpriseGenreSelect();
+    renderSurpriseResult(null);
+    openModal('surpriseModal');
+}
+
+async function rollSurprise() {
+    await fetchAllMovies();
+    const filters = {
+        maxRuntime: document.getElementById('surpriseRuntime').value,
+        genre: document.getElementById('surpriseGenre').value,
+        decade: document.getElementById('surpriseDecade').value
+    };
+    const candidates = getWatchlistCandidates(filters);
+    const pick = pickRandomFromList(candidates);
+    renderSurpriseResult(pick);
+    if (pick) hapticFeedback('medium');
+}
+
+document.getElementById('surpriseMeBtn')?.addEventListener('click', openSurpriseModal);
+document.getElementById('surprisePickBtn')?.addEventListener('click', rollSurprise);
+document.getElementById('surpriseRerollBtn')?.addEventListener('click', rollSurprise);
+document.querySelector('.close-surprise')?.addEventListener('click', () => closeModal('surpriseModal'));
+window.addEventListener('click', (event) => {
+    const modal = document.getElementById('surpriseModal');
+    if (event.target === modal) closeModal('surpriseModal');
+});
 
 // --- LISTENERS & IMPORT ---
 document.getElementById('viewMode').onchange = () => {

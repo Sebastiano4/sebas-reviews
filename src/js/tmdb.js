@@ -351,15 +351,78 @@ export async function fetchActorImage(actorName) {
 }
 
 // ---------------------------------------------------------------------------
-// IMDb rating via OMDb — with in-memory cache + concurrency limit
+// IMDb rating via OMDb proxy server-side
+//
+// La chiamata OMDb è ora interamente lato server (Cloud Function omdbProxy):
+//   1) la API key resta sul backend
+//   2) la cache Firestore è condivisa tra utenti (TTL 7 giorni)
+//   3) qui manteniamo due livelli di cache locale: in-memory (intra-sessione)
+//      + IndexedDB (cross-session, TTL 7 giorni) per evitare round-trip
+//      anche su refresh di pagina
 // ---------------------------------------------------------------------------
-const OMDB_KEY = '3bab6459';
-const imdbCache = new Map(); // key → { rating: string|null, votes: string|null }
-const imdbPending = new Map(); // key → Promise (deduplica chiamate concorrenti)
+
+const omdbProxyFn = httpsCallable(functions, 'omdbProxy');
+
+const imdbCache = new Map();    // chiave → payload (cache hot in-memory)
+const imdbPending = new Map();  // chiave → Promise (dedup concorrente)
 
 let imdbInFlight = 0;
 const imdbQueue = [];
 const IMDB_MAX_CONCURRENT = 4;
+
+const IMDB_IDB_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 giorni
+const IMDB_IDB_NAME = 'sebas-omdb-cache';
+const IMDB_IDB_STORE = 'imdb';
+let imdbIdbPromise = null;
+
+function openImdbIdb() {
+  if (imdbIdbPromise) return imdbIdbPromise;
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  imdbIdbPromise = new Promise((resolve) => {
+    try {
+      const req = indexedDB.open(IMDB_IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IMDB_IDB_STORE)) {
+          db.createObjectStore(IMDB_IDB_STORE, { keyPath: 'key' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => {
+        console.warn('[OMDb cache] IndexedDB open failed:', req.error);
+        resolve(null);
+      };
+    } catch (e) {
+      console.warn('[OMDb cache] IndexedDB unavailable:', e);
+      resolve(null);
+    }
+  });
+  return imdbIdbPromise;
+}
+
+async function imdbIdbGet(key) {
+  const db = await openImdbIdb();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IMDB_IDB_STORE, 'readonly');
+      const req = tx.objectStore(IMDB_IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+async function imdbIdbPut(record) {
+  const db = await openImdbIdb();
+  if (!db) return;
+  try {
+    const tx = db.transaction(IMDB_IDB_STORE, 'readwrite');
+    tx.objectStore(IMDB_IDB_STORE).put(record);
+  } catch (e) { /* best-effort */ }
+}
 
 function runImdbQueue() {
   while (imdbInFlight < IMDB_MAX_CONCURRENT && imdbQueue.length) {
@@ -379,44 +442,74 @@ function enqueueImdb(task) {
   });
 }
 
+function imdbCacheKey({ imdbId, title, year }) {
+  if (imdbId) return `id:${imdbId}`;
+  return `t:${(title || '').toLowerCase()}:${year || ''}`;
+}
+
 /**
- * Recupera rating + numero voti IMDb via OMDb.
- * Accetta { imdbId } (preferito) o { title, year } come fallback.
- * Restituisce { rating: "7.3" | null, votes: "1,933,456" | null } o null se irraggiungibile.
+ * Recupera rating + voti IMDb via Cloud Function (OMDb proxy).
+ * Tre livelli di cache: memory → IndexedDB → server (Firestore condiviso).
+ * Accetta { imdbId } (preferito), o { title, year } come fallback.
  */
 export async function fetchImdbRating({ imdbId, title, year } = {}) {
-  const key = imdbId ? `id:${imdbId}` : `t:${(title || '').toLowerCase()}:${year || ''}`;
+  const key = imdbCacheKey({ imdbId, title, year });
+
+  // L1: memory
   if (imdbCache.has(key)) return imdbCache.get(key);
+  // Dedup di richieste concorrenti
   if (imdbPending.has(key)) return imdbPending.get(key);
 
-  const promise = enqueueImdb(async () => {
-    const url = imdbId
-      ? `https://www.omdbapi.com/?i=${encodeURIComponent(imdbId)}&apikey=${OMDB_KEY}`
-      : `https://www.omdbapi.com/?t=${encodeURIComponent(title || '')}${year ? `&y=${encodeURIComponent(year)}` : ''}&apikey=${OMDB_KEY}`;
+  const promise = (async () => {
+    // L2: IndexedDB (cross-session)
     try {
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.Response !== 'True') {
-        const result = { rating: null, votes: null };
-        imdbCache.set(key, result);
-        return result;
+      const rec = await imdbIdbGet(key);
+      if (rec && rec.payload && rec.fetchedAt && (Date.now() - rec.fetchedAt) < IMDB_IDB_TTL_MS) {
+        imdbCache.set(key, rec.payload);
+        return rec.payload;
       }
-      const result = {
-        rating: data.imdbRating && data.imdbRating !== 'N/A' ? data.imdbRating : null,
-        votes: data.imdbVotes && data.imdbVotes !== 'N/A' ? data.imdbVotes : null,
-        imdbId: data.imdbID || imdbId || null
-      };
-      imdbCache.set(key, result);
-      return result;
-    } catch (err) {
-      console.warn('[OMDb] fetch failed for', key, err);
-      const result = { rating: null, votes: null };
-      imdbCache.set(key, result);
-      return result;
-    }
-  });
+    } catch (_) { /* ignora */ }
+
+    // L3: server (Cloud Function con cache Firestore condivisa)
+    return enqueueImdb(async () => {
+      try {
+        const user = await waitForAuthReady();
+        if (!user) {
+          // Senza auth non possiamo chiamare la callable: fallback graceful.
+          const empty = { rating: null, votes: null };
+          imdbCache.set(key, empty);
+          return empty;
+        }
+        const res = await omdbProxyFn({ imdbId, title, year });
+        const payload = res?.data || { rating: null, votes: null };
+        imdbCache.set(key, payload);
+        imdbIdbPut({ key, payload, fetchedAt: Date.now() }).catch(() => {});
+        return payload;
+      } catch (err) {
+        console.warn('[OMDb proxy] failed for', key, err?.message || err);
+        const fallback = { rating: null, votes: null };
+        imdbCache.set(key, fallback);
+        return fallback;
+      }
+    });
+  })();
 
   imdbPending.set(key, promise);
   promise.finally(() => imdbPending.delete(key));
   return promise;
+}
+
+/**
+ * Invalida la cache locale (memoria + IndexedDB). Utile per debugging o
+ * dopo una operazione di repair che vuole forzare il refetch.
+ */
+export async function clearImdbCache() {
+  imdbCache.clear();
+  imdbPending.clear();
+  const db = await openImdbIdb();
+  if (!db) return;
+  try {
+    const tx = db.transaction(IMDB_IDB_STORE, 'readwrite');
+    tx.objectStore(IMDB_IDB_STORE).clear();
+  } catch (e) { /* ignora */ }
 }

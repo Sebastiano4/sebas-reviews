@@ -101,6 +101,7 @@
                 <option value="9">9.0+</option>
                 <option value="8">8.0+</option>
             </select>
+            <button id="surpriseMeBtn" class="btn-primary surprise-me-btn" type="button" hidden>🎲 Surprise me</button>
             <button id="resetFiltersBtn" class="btn-primary">Reset</button>
         </div>
 
@@ -627,6 +628,72 @@
 
             <input type="file" id="importFileInput2" accept=".json" style="display:none;">
             <input type="file" id="csvFileInput2" accept=".csv" style="display:none;">
+        </div>
+    </div>
+
+    <!-- ==================== MODALE SURPRISE ME (WATCHLIST RANDOM PICKER) ==================== -->
+    <div id="surpriseModal" class="modal">
+        <div class="modal-content surprise-content">
+            <span class="close-surprise">&times;</span>
+
+            <header class="surprise-header">
+                <p class="surprise-eyebrow">FROM YOUR WATCHLIST</p>
+                <h2 class="surprise-title">🎲 Surprise me</h2>
+                <p class="surprise-subtitle">Lasciamo che il caso decida cosa guardi stasera.</p>
+            </header>
+
+            <div id="surpriseFilters" class="surprise-filters">
+                <label class="surprise-filter">
+                    <span class="surprise-filter-label">Durata max</span>
+                    <select id="surpriseRuntime" class="filter-select">
+                        <option value="">Qualsiasi</option>
+                        <option value="90">≤ 1h 30m</option>
+                        <option value="120">≤ 2h</option>
+                        <option value="150">≤ 2h 30m</option>
+                        <option value="180">≤ 3h</option>
+                    </select>
+                </label>
+                <label class="surprise-filter">
+                    <span class="surprise-filter-label">Genere</span>
+                    <select id="surpriseGenre" class="filter-select">
+                        <option value="">Qualsiasi</option>
+                    </select>
+                </label>
+                <label class="surprise-filter">
+                    <span class="surprise-filter-label">Decennio</span>
+                    <select id="surpriseDecade" class="filter-select">
+                        <option value="">Qualsiasi</option>
+                        <option value="2020">2020s</option>
+                        <option value="2010">2010s</option>
+                        <option value="2000">2000s</option>
+                        <option value="1990">1990s</option>
+                        <option value="1980">1980s</option>
+                        <option value="1970">1970s</option>
+                        <option value="1960">1960s e prima</option>
+                    </select>
+                </label>
+            </div>
+
+            <div id="surpriseResultContainer" class="surprise-result-container">
+                <div id="surpriseEmpty" class="surprise-empty">
+                    <span class="surprise-dice" aria-hidden="true">🎲</span>
+                    <p>Imposta i filtri (o lascialo libero) e premi <strong>Pick a film</strong> per scoprire cosa guardare.</p>
+                </div>
+                <div id="surpriseResult" class="surprise-result" hidden></div>
+            </div>
+
+            <div class="surprise-actions">
+                <button type="button" id="surprisePickBtn" class="btn-primary surprise-pick-btn">
+                    <span class="surprise-pick-icon">🎲</span>
+                    <span class="surprise-pick-label">Pick a film</span>
+                </button>
+                <button type="button" id="surpriseRerollBtn" class="btn-primary surprise-reroll-btn" hidden>
+                    <span>↻ Reroll</span>
+                </button>
+                <button type="button" id="surpriseOpenBtn" class="btn-primary surprise-open-btn" hidden>
+                    <span>Apri scheda</span>
+                </button>
+            </div>
         </div>
     </div>
 
