@@ -50,19 +50,25 @@
         <!-- Navbar superiore -->
         <nav class="navbar">
             <div class="brand">
-                <h1 class="logo">SEBA'S <span>REVIEWS</span></h1>
-                <div id="globalCounters" class="nav-subtitle">0 Watched | 0 To Watch</div>
+                <div class="nav-mark"><span class="nav-mark-txt">S·R</span></div>
+                <div class="nav-logotype">
+                    <h1 class="nav-logo">SEBA'S <em>REVIEWS</em></h1>
+                    <div id="globalCounters" class="nav-subtitle nav-counts">0 Watched | 0 To Watch</div>
+                </div>
             </div>
             <div class="nav-actions">
-                <button id="statsBtn" class="btn-primary" style="background: #1e293b;">📊 Vault</button>
-                <button id="battleBtn" class="btn-primary" style="background: linear-gradient(135deg, #c4302b 0%, #8b2e27 100%); font-weight: 700;">⚔️ BATTLE</button>
+                <button id="statsBtn" class="btn-primary">📊 Vault</button>
+                <button id="battleBtn" class="btn-primary">⚔️ BATTLE</button>
                 <button id="addBtn" class="btn-primary">+ New Entry</button>
             </div>
         </nav>
 
         <!-- Sub-bar: titoli + lista visualizzazione -->
         <div class="subnav">
-            <input type="text" id="mainSearch" placeholder="Search titles or awards...">
+            <div class="search-wrap">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="mainSearch" placeholder="Search titles or awards...">
+            </div>
             <select id="viewMode" class="filter-select">
                 <option value="archive">Archive</option>
                 <option value="watchlist">Watchlist</option>
@@ -124,7 +130,7 @@
 
         <!-- Decade filters -->
         <div class="decade-filters">
-            <span style="color: var(--text-muted); margin-right: 10px;">📅 Decade:</span>
+            <span>DECADE</span>
             <button class="decade-btn" data-decade="">All</button>
             <button class="decade-btn" data-decade="1970">1970s</button>
             <button class="decade-btn" data-decade="1980">1980s</button>
