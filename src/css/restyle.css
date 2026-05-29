@@ -1,0 +1,208 @@
+/* =========================================
+   RESTYLE — High-end visual polish
+   Caricato dopo modern.css come ultimo
+   foglio di stile. Per disabilitare:
+   commenta il <link> in index.html.
+   ========================================= */
+
+/* ---- 1. FONT SYSTEM -------------------
+   Inter → Hanken Grotesk (più caldo, meno
+   "default AI"). DM Mono per tutti i dati
+   numerici con tabular-nums.
+   --------------------------------------- */
+
+/* Propagazione dal body — copre tutti gli
+   elementi che ereditano il font (la maggior
+   parte). Le regole esplicite sotto catturano
+   le occorrenze hardcoded di 'Inter' in modern.css. */
+body {
+    font-family: 'Hanken Grotesk', -apple-system, 'Segoe UI', sans-serif;
+    font-feature-settings: "ss01", "cv11";
+}
+
+/* Tutti gli elementi UI interattivi e i contenitori
+   dove modern.css imposta 'Inter' in modo esplicito */
+button, input, select, textarea,
+.btn-primary, .btn-save, .btn-quick,
+.nav-search, .subnav, .filter-bar,
+.decade-pill, .quick-filter, .filter-chip,
+.vault-tab, .vault-action-btn,
+.bottom-nav, .nav-label,
+.chat-input, .chat-message, .ai-chat-container,
+.profile-section, .profile-item,
+.modal-content, .modal-form, .modal-form label,
+.modal-form input, .modal-form select,
+.modal-form textarea, .modal-form option,
+.section-title-bar, .sort-select,
+.import-export-card, .backup-section,
+.explore-card, .surprise-card-meta,
+.md-cast-name, .md-genre-tag,
+.toast-message, .elo-row-content,
+.ranking-controls, .battle-section,
+.stats-overview, .stats-grid,
+[class*="stat-"], [class*="vault-"],
+[class*="genre-"], [class*="director-"] {
+    font-family: 'Hanken Grotesk', -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* DM Mono + numeri tabulari — rating, ELO,
+   anni, contatori. Nessuna variazione visiva
+   per i decimali che "ballano". */
+.elo-rank-badge,
+.elo-score-display,
+.battle-elo-score,
+.md-rating-value,
+.quick-tools span,
+.card-year-badge,
+.stat-number,
+.stat-value,
+.overview-stat-number {
+    font-family: 'DM Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+/* ---- 2. SHADOWS -------------------------
+   Vecchio: alta opacità, raggio piccolo,
+   glow al neon dorato su hover.
+   Nuovo: spread negativo + blur ampio +
+   alpha bassa = luce ambientale diffusa,
+   non faretto. Zero anelli neon.
+   ---------------------------------------- */
+
+.movie-card {
+    box-shadow:
+        0 10px 30px -12px rgba(0, 0, 0, 0.50),
+        0 2px 8px  -4px rgba(0, 0, 0, 0.30),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    /* rimuove il backdrop-filter che rallenta su device lenti */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.movie-card:hover {
+    transform: translateY(-5px); /* da -6px scale(1.015) — meno agitato */
+    border-color: rgba(212, 175, 55, 0.26);
+    box-shadow:
+        0 28px 60px -18px rgba(0, 0, 0, 0.58),
+        0 8px 22px -10px rgba(0, 0, 0, 0.38);
+    /* niente ring dorato neon: il cambio di border + lift è sufficiente */
+}
+
+/* Poster: zoom più morbido, nessuna saturazione spinta */
+.movie-card:hover .poster-container img {
+    transform: scale(1.03);
+    filter: brightness(1.01) saturate(1.05);
+}
+
+/* Modale: profondità senza pesantezza */
+.modal-content {
+    box-shadow:
+        0 40px 90px -24px rgba(0, 0, 0, 0.64),
+        0 12px 32px -16px rgba(0, 0, 0, 0.42);
+}
+
+/* Spotlight: ombra di pavimento più soffice */
+.spotlight-section {
+    box-shadow: 0 18px 48px -16px rgba(0, 0, 0, 0.52);
+}
+
+/* ---- 3. ATMOSFERA DI SFONDO -------------
+   Originale: due radial-glow aggressivi rosso
+   e oro che "urlano". Nuovo: una sola vignette
+   calda tenue — atmosfera, non rumore.
+   ---------------------------------------- */
+body::before {
+    background-image:
+        radial-gradient(120% 70% at 50% -5%,
+            rgba(196, 48, 43, .04) 0%, transparent 55%),
+        radial-gradient(90% 60% at 50% 110%,
+            rgba(212, 175, 55, .02) 0%, transparent 50%),
+        repeating-linear-gradient(
+            0deg, transparent, transparent 2px,
+            rgba(255, 255, 255, .008) 2px,
+            rgba(255, 255, 255, .008) 3px
+        );
+}
+
+/* ---- 4. ELO TIER BADGES -----------------
+   Originale: neon puro (#00ffaa, #f084dc…).
+   Nuovo: tinte pastello calde coerenti con
+   la palette cinema — stessa leggibilità,
+   zero "cyberpunk".
+   ---------------------------------------- */
+
+/* Rookie — slate */
+.elo-tier-rookie .elo-tier-badge,
+.elo-tier-rookie { color: #b9c2dd; background: rgba(148, 163, 200, .10); border-color: rgba(148, 163, 200, .24); }
+
+/* Pro — sky */
+.elo-tier-pro .elo-tier-badge,
+.elo-tier-pro { color: #a8d8ee; background: rgba(125, 200, 235, .10); border-color: rgba(125, 200, 235, .26); }
+
+/* Elite — jade (era #00ffaa → troppo neon) */
+.elo-tier-elite .elo-tier-badge,
+.elo-tier-elite { color: #8fe6c4; background: rgba(52, 211, 153, .12); border-color: rgba(52, 211, 153, .28); }
+
+/* Veteran — lavender */
+.elo-tier-veteran .elo-tier-badge,
+.elo-tier-veteran { color: #c4b1f0; background: rgba(167, 139, 250, .12); border-color: rgba(167, 139, 250, .28); }
+
+/* Master — amber */
+.elo-tier-master .elo-tier-badge,
+.elo-tier-master { color: #f3cf86; background: rgba(251, 191, 36, .12); border-color: rgba(251, 191, 36, .30); }
+
+/* Grandmaster — mauve (era #f084dc → troppo neon) */
+.elo-tier-grandmaster .elo-tier-badge,
+.elo-tier-grandmaster { color: #dcb8ee; background: rgba(192, 132, 252, .12); border-color: rgba(192, 132, 252, .30); }
+
+/* Legendary — warm gold, rimuove glow aggressivo */
+.elo-tier-legendary .elo-tier-badge,
+.elo-tier-legendary {
+    color: #f0d9a4;
+    background: rgba(212, 175, 55, .14);
+    border-color: rgba(212, 175, 55, .40);
+    box-shadow: none;
+    text-shadow: none;
+}
+
+/* ---- 5. PULSAZIONE LEGENDARY ------------
+   Manteniamo l'animazione ma la rendiamo
+   più discreta (da -3px a -1.5px).
+   ---------------------------------------- */
+@keyframes legendaryPulse {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-1.5px); }
+}
+
+/* ---- 6. BOTTONI -------------------------
+   Ombra rossa soffice invece di nessuna o
+   aggressiva. Font weight 600.
+   ---------------------------------------- */
+.btn-primary,
+.btn-save {
+    font-weight: 600;
+    box-shadow: 0 2px 8px -2px rgba(196, 48, 43, .32);
+}
+
+.btn-primary:hover,
+.btn-save:hover {
+    box-shadow: 0 4px 14px -2px rgba(196, 48, 43, .44);
+}
+
+/* Press state fisico su tutti i bottoni */
+button:active,
+.btn-primary:active,
+.btn-save:active,
+.btn-quick:active {
+    transform: scale(0.975);
+}
+
+/* ---- 7. SELEZIONE TESTO -----------------
+   Gold come accent di selezione — coerente
+   col brand, non il blue di sistema.
+   ---------------------------------------- */
+::selection {
+    background: rgba(212, 175, 55, .28);
+    color: #fff;
+}
