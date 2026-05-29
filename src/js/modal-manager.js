@@ -1,14 +1,15 @@
 /**
  * GLOBAL MODAL MANAGER
- * Centralized system for managing all modals with Hardware Back Button support
- * Uses History API for seamless navigation on mobile
+ * Centralized system for managing all modals with Hardware Back Button support.
+ * Uses History API for seamless navigation on mobile.
+ *
+ * Architettura deterministica: lo stato dello stack è aggiornato esclusivamente
+ * tramite le chiamate esplicite a openModal() e closeModal(). Non esiste alcun
+ * osservatore passivo del DOM (MutationObserver rimosso per performance).
  */
 
-// Track the modal stack (LIFO - Last In, First Out)
 let modalStack = [];
-let skipHistoryBackOnNextClose = false;
 
-// List of all modal IDs in the app
 const MODAL_IDS = [
   'modal',
   'reviewModal',
@@ -23,55 +24,43 @@ const MODAL_IDS = [
   'actorsRankingModal',
   'genreChartModal',
   'eloRankingModal',
-  'voteModal'
+  'voteModal',
+  'confirmModal',
+  'surpriseModal'
 ];
 
-/**
- * Detect which modal is currently open in the DOM
- */
-function detectCurrentlyOpenModals() {
-  const openModals = [];
+function syncModalStack() {
+  const open = [];
   MODAL_IDS.forEach(id => {
-    const elem = document.getElementById(id);
-    if (!elem) return;
-
-    const computed = window.getComputedStyle(elem);
-    if (computed.display !== 'none' && computed.visibility !== 'hidden' && computed.opacity !== '0') {
-      openModals.push(id);
+    const el = document.getElementById(id);
+    if (!el) return;
+    const s = window.getComputedStyle(el);
+    if (s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0') {
+      open.push(id);
     }
   });
-  return openModals;
+  modalStack = open;
 }
 
 /**
- * Sync internal stack with DOM reality
- */
-function syncModalStack() {
-  modalStack = detectCurrentlyOpenModals();
-}
-
-/**
- * Open a modal and push to history stack
- * @param {string|HTMLElement} modalId - Modal ID or element
+ * Apre un modal e lo aggiunge allo stack history.
+ * @param {string|HTMLElement} modalId
  */
 export function openModal(modalId) {
-  const modalElement = typeof modalId === 'string' ? document.getElementById(modalId) : modalId;
-  if (!modalElement) {
+  const el = typeof modalId === 'string' ? document.getElementById(modalId) : modalId;
+  if (!el) {
     console.warn('Modal element not found:', modalId);
     return;
   }
 
-  const id = typeof modalId === 'string' ? modalId : modalElement.id;
+  const id = typeof modalId === 'string' ? modalId : el.id;
 
-  // Show the modal
-  showModalElement(modalElement);
+  showModalElement(el);
 
-  // Add to stack if not already there
   if (!modalStack.includes(id)) {
     modalStack.push(id);
   }
 
-  // Push to browser history
   history.pushState(
     { modalStack: [...modalStack], modalOpen: true, modalId: id },
     '',
@@ -80,9 +69,10 @@ export function openModal(modalId) {
 }
 
 /**
- * Close a modal and clean up history
- * @param {string|boolean|null} modalIdOrSkipHistory - Modal ID to close, or skipHistory boolean when closing top modal
- * @param {boolean} [skipHistory=false] - When closing by ID, skipHistory prevents a duplicate history.back call during popstate handling
+ * Chiude un modal. Se viene passato un ID lo chiude direttamente,
+ * altrimenti chiude il modal in cima allo stack.
+ * @param {string|boolean} [modalIdOrSkipHistory=false]
+ * @param {boolean} [skipHistory=false]
  */
 export function closeModal(modalIdOrSkipHistory = false, skipHistory = false) {
   syncModalStack();
@@ -97,80 +87,80 @@ export function closeModal(modalIdOrSkipHistory = false, skipHistory = false) {
 
   if (!modalId) return;
 
-  const modalElement = document.getElementById(modalId);
-  if (modalElement) {
-    hideModalElement(modalElement);
-  }
+  const el = document.getElementById(modalId);
+  if (el) hideModalElement(el);
 
   const idx = modalStack.indexOf(modalId);
-  if (idx !== -1) {
-    modalStack.splice(idx, 1);
-  }
+  if (idx !== -1) modalStack.splice(idx, 1);
 
-  // Clean up browser history if user manually closed
-  if (skipHistory) {
-    skipHistoryBackOnNextClose = true;
-  } else if (history.state && history.state.modalOpen && history.length > 1) {
+  if (!skipHistory && history.state && history.state.modalOpen && history.length > 1) {
     history.back();
   }
 }
 
-/**
- * Close a specific modal by ID
- */
 export function closeModalById(modalId) {
   closeModal(modalId, false);
 }
 
-/**
- * Force close all modals
- */
 export function closeAllModals() {
   while (modalStack.length > 0) {
-    const modalId = modalStack.pop();
-    const modalElement = document.getElementById(modalId);
-    if (modalElement) {
-      hideModalElement(modalElement);
-    }
+    const id = modalStack.pop();
+    const el = document.getElementById(id);
+    if (el) hideModalElement(el);
   }
 }
 
-/**
- * Get the currently open modal
- */
 export function getCurrentModal() {
   syncModalStack();
-  if (modalStack.length === 0) return null;
-  return modalStack[modalStack.length - 1];
+  return modalStack.length > 0 ? modalStack[modalStack.length - 1] : null;
 }
 
-/**
- * Check if any modal is open
- */
 export function isAnyModalOpen() {
   syncModalStack();
   return modalStack.length > 0;
 }
 
-/**
- * Show modal element (handles different display types)
- */
-function showModalElement(element) {
-  if (!element) return;
+// Unified modal transitions: open with slide-up + fade-in, close with
+// fade-out + slight slide-down. Duration must match `--dur-med` in modern.css.
+const MODAL_EXIT_MS = 220;
+const pendingHide = new WeakMap();
 
-  // Determine display type based on class or previous state
-  const displayType = element.classList.contains('battle-content') ||
-                     element.id === 'battleModal' ? 'flex' : 'block';
-
-  element.style.display = displayType;
-
-  // Ensure modal visibility
-  if (element.classList.contains('active')) {
-    // Already has active class
-  } else {
-    element.classList.add('active');
+function showModalElement(el) {
+  if (!el) return;
+  // Cancel any pending hide so a rapid close→open doesn't snap to display:none.
+  const prev = pendingHide.get(el);
+  if (prev) {
+    clearTimeout(prev);
+    pendingHide.delete(el);
   }
+  el.classList.remove('closing');
+  const displayType = el.id === 'battleModal' ? 'flex' : 'block';
+  el.style.display = displayType;
+  // Force a reflow so the transition fires from the off-state.
+  void el.offsetWidth;
+  el.classList.add('active');
 }
+
+function hideModalElement(el) {
+  if (!el) return;
+  // Already hidden? Just normalize.
+  if (el.style.display === 'none' && !el.classList.contains('active')) {
+    el.classList.remove('closing');
+    return;
+  }
+  el.classList.remove('active');
+  el.classList.add('closing');
+  const prev = pendingHide.get(el);
+  if (prev) clearTimeout(prev);
+  const t = setTimeout(() => {
+    el.style.display = 'none';
+    el.classList.remove('closing');
+    pendingHide.delete(el);
+  }, MODAL_EXIT_MS);
+  pendingHide.set(el, t);
+}
+
+// ---- POPSTATE INTERCEPTORS ----
 
 const popStateInterceptors = [];
 
@@ -183,154 +173,39 @@ export function registerPopStateInterceptor(interceptor) {
   };
 }
 
-/**
- * Hide modal element
- */
-function hideModalElement(element) {
-  if (!element) return;
-  element.style.display = 'none';
-  element.classList.remove('active');
-}
-
-/**
- * Global popstate handler for browser/hardware back button
- */
 export function initGlobalBackButtonHandler() {
   window.addEventListener('popstate', (event) => {
-    // Allow nested app state handlers to intercept back before closing a modal.
     for (const interceptor of popStateInterceptors) {
       try {
-        if (interceptor(event)) {
-          return;
-        }
+        if (interceptor(event)) return;
       } catch (err) {
         console.warn('Popstate interceptor error:', err);
       }
     }
 
     syncModalStack();
-    
-    // If any modal is open, close the top-most one
+
     if (isAnyModalOpen()) {
-      const topModalId = modalStack[modalStack.length - 1];
-      if (topModalId) {
-        const elem = document.getElementById(topModalId);
-        if (elem) {
-          hideModalElement(elem);
-        }
-        
-        // Remove from stack
+      const topId = modalStack[modalStack.length - 1];
+      if (topId) {
+        const el = document.getElementById(topId);
+        if (el) hideModalElement(el);
         modalStack.pop();
-        
-        console.log(`🔙 Back button: closed modal "${topModalId}"`);
       }
-      return;
     }
-
-    // Otherwise allow normal navigation (browser handles it)
   });
 }
 
 /**
- * Attach close handlers to modal close buttons
- * This is called automatically during initialization
- */
-export function attachCloseHandlers() {
-  // We'll let existing close button handlers work as-is
-  // The MutationObserver (watchModalChanges) will detect when modals are hidden
-  // and automatically clean up the history
-}
-
-/**
- * Watch for modal visibility changes and clean up history
- * This helps when modals are closed without going through our handlers
- */
-function watchModalChanges() {
-  let previousVisibility = {};
-  
-  // Initialize previous state
-  MODAL_IDS.forEach(id => {
-    const elem = document.getElementById(id);
-    previousVisibility[id] = elem ? elem.style.display !== 'none' : false;
-  });
-
-  const observer = new MutationObserver(() => {
-    // Check each modal
-    MODAL_IDS.forEach(id => {
-      const elem = document.getElementById(id);
-      if (!elem) return;
-      
-      const isNowVisible = elem.style.display !== 'none' && elem.style.display !== '';
-      const wasVisible = previousVisibility[id];
-      
-      // Modal was visible and is now hidden
-      if (wasVisible && !isNowVisible) {
-        previousVisibility[id] = false;
-        
-        // Remove from stack
-        const idx = modalStack.indexOf(id);
-        if (idx !== -1) {
-          modalStack.splice(idx, 1);
-        }
-        
-        // Clean up history (a modal was manually closed)
-        if (skipHistoryBackOnNextClose) {
-          skipHistoryBackOnNextClose = false;
-        } else if (history.length > 1) {
-          // Only call history.back() if the current state is marked as modal
-          const currentState = history.state;
-          if (currentState && currentState.modalOpen) {
-            history.back();
-          }
-        }
-      }
-      // Modal was hidden and is now visible
-      else if (!wasVisible && isNowVisible) {
-        previousVisibility[id] = true;
-
-        // Add to stack if not already there
-        if (!modalStack.includes(id)) {
-          modalStack.push(id);
-        }
-
-        // openModal already handles history state pushes.
-        // This observer only keeps the internal stack synced for external modifications.
-      }
-    });
-  });
-
-  // Watch the entire document for changes
-  observer.observe(document.body, {
-    attributes: true,
-    attributeFilter: ['style'],
-    subtree: true,
-    attributeOldValue: false,
-    characterData: false
-  });
-}
-
-/**
- * Initialize the global modal system
- * Call this once when the app loads
+ * Inizializza il sistema modale globale.
+ * Chiamare una sola volta all'avvio dell'app.
  */
 export function initModalSystem() {
   initGlobalBackButtonHandler();
-  watchModalChanges();
   console.log('✓ Global Modal System initialized');
 }
 
-/**
- * Re-attach close handlers (call after new modals are added dynamically)
- */
-export function refreshCloseHandlers() {
-  attachCloseHandlers();
-}
-
-/**
- * Debug: Log current modal stack
- */
 export function debugModalStack() {
   syncModalStack();
   console.log('Current Modal Stack:', modalStack);
 }
-

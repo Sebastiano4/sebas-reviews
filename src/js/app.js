@@ -1,11 +1,11 @@
 // --- FIREBASE CONNECTION ---
 // 1. Import the initialized connection from your new file
-import { auth, db, provider } from './firebase.js';
+import { auth, db, provider, functions } from './firebase.js';
 
 // 2. Import the active Firebase functions needed to run logic in this file
 import { signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import { collection, addDoc, getDocs, getDoc, query, doc, deleteDoc, updateDoc, setDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-functions.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-functions.js";
 import {
   searchMovies,
   searchMoviesWithYear,
@@ -15,7 +15,12 @@ import {
   getMovieDetailsWithCredits,
   getGenreList,
   getMovieVideos,
-  getFirstMovieByTitleYear
+  getFirstMovieByTitleYear,
+  findBestMovieMatch,
+  findMovieByImdbId,
+  resolveSavedMovieToTmdb,
+  getSimilarMovies,
+  fetchImdbRating
 } from './tmdb.js';
 import {
   showSkeletonLoaders,
@@ -26,12 +31,17 @@ import {
   toBase64,
   getRuntimeMinutes,
   hapticFeedback,
-  ensurePapaParse
+  ensurePapaParse,
+  escapeHtml,
+  escapeAttr,
+  askConfirm
 } from './utils.js';
-import { initTheme, initBottomNav, closeForm, closeReviewModal, openProfileModal, showProfileMainView, attachProfileListeners, showProfileConfirmPage, startRepairWithProgress, setUIDependencies } from './ui.js';
+import { initTheme, initBottomNav, initFiltersToggle, closeForm, closeReviewModal, openProfileModal, showProfileMainView, attachProfileListeners, showProfileConfirmPage, startRepairWithProgress, setUIDependencies } from './ui.js';
 import { setStatsDependencies, initVaultMap } from './stats.js';
 import { startBattle, closeBattleModal, migrateMoviesToElo, resetEloSystemState } from './elo.js';
 import { initModalSystem, openModal, closeModal } from './modal-manager.js';
+import { registerListener, unregisterAll } from './listener-registry.js';
+import { enhanceAllSelects } from './custom-select.js';
 
 // --- GLOBALS ---
 let currentUser = null;
@@ -139,9 +149,9 @@ function populateFilters(movies) {
     const dirs = [...new Set(movies.map(m => m.director))].filter(d => d && d !== 'Unknown').sort();
     const genresSet = new Set();
     movies.forEach(m => m.genres?.split(', ').forEach(g => genresSet.add(g)));
-    document.getElementById('filterYear').innerHTML = '<option value="">All Years</option>' + years.map(v => `<option value="${v}">${v}</option>`).join('');
-    document.getElementById('filterGenre').innerHTML = '<option value="">All Genres</option>' + Array.from(genresSet).sort().map(v => `<option value="${v}">${v}</option>`).join('');
-    document.getElementById('directorOptions').innerHTML = dirs.map(v => `<option value="${v}">`).join('');
+    document.getElementById('filterYear').innerHTML = '<option value="">All Years</option>' + years.map(v => `<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join('');
+    document.getElementById('filterGenre').innerHTML = '<option value="">All Genres</option>' + Array.from(genresSet).sort().map(v => `<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join('');
+    document.getElementById('directorOptions').innerHTML = dirs.map(v => `<option value="${escapeAttr(v)}">`).join('');
 }
 
 async function showRecommendations(movies) {
@@ -158,7 +168,7 @@ async function showRecommendations(movies) {
 
 function createSmallCard(m) {
     const div = document.createElement('div'); div.className='movie-card'; div.onclick=()=>openReview(m.id);
-    div.innerHTML = `<div class="poster-container"><img src="${m.poster}"></div><div class="card-info"><h3>${m.title}</h3></div>`;
+    div.innerHTML = `<div class="poster-container"><img src="${escapeAttr(m.poster)}" alt=""></div><div class="card-info"><h3>${escapeHtml(m.title)}</h3></div>`;
     return div;
 }
 
@@ -202,6 +212,10 @@ function syncFilterUI(mode) {
         normalFilters.style.display = 'flex';
         exploreFilters.style.display = 'none';
     }
+    // Il bottone "Surprise me" ha senso solo nella watchlist (l'archivio è
+    // pieno di film già visti). Lo mostriamo dinamicamente in base al modo.
+    const surpriseBtn = document.getElementById('surpriseMeBtn');
+    if (surpriseBtn) surpriseBtn.hidden = mode !== 'watchlist';
 }
 
 async function renderGallery(){
@@ -265,6 +279,8 @@ initVaultMap();
 // Initialize UI components
 initTheme();
 initBottomNav();
+initFiltersToggle();
+enhanceAllSelects();
 
 
 
@@ -334,31 +350,7 @@ onAuthStateChanged(auth, async (user) => {
             }
             updateProfileButtonAvatar(profilePic);
         }
-
-        // --- REAL-TIME NICKNAME SYNC ---
-        // Ascolta i cambiamenti del documento dell'utente in Firestore
-        const userRef = doc(db, "users", user.uid);
-        const unsubscribe = onSnapshot(userRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const userData = docSnap.data();
-                if (userData.nickname) {
-                    localStorage.setItem('sebas-nickname', userData.nickname);
-                    // Aggiorna il DOM se il pannello profilo è aperto
-                    const profileNicknameEl = document.getElementById('profileNickname');
-                    if (profileNicknameEl) {
-                        profileNicknameEl.innerText = userData.nickname;
-                    }
-                    console.log('Nickname aggiornato in tempo reale:', userData.nickname);
-                }
-            }
-        }, (error) => {
-            console.warn('Errore nel listener del nickname:', error);
-        });
-
-        renderGallery();
-        startDynamicSpotlight();
-
-        // --- ELO RANKING BATTLE SYSTEM ---
+            loadExploreGenres().catch(err => console.error('Errore nel caricamento generi:', err));
         // Initialize battle button
         const bottomBattleBtn = document.getElementById('bottomBattleBtn');
         if (bottomBattleBtn) {
@@ -373,9 +365,22 @@ onAuthStateChanged(auth, async (user) => {
         } catch (error) {
             console.warn('Error migrating movies to Elo:', error);
         }
+
+        // Aggiorna i contatori "Watched | To Watch" subito dopo il login.
+        // Senza questa chiamata la galleria viene popolata dall'IntersectionObserver
+        // via loadMoreMovies(), che NON tocca updateSpotlightAndCounters(): i contatori
+        // rimangono "0 | 0" finché l'utente non cambia view mode o filtro.
+        try {
+            const movies = await fetchAllMovies();
+            updateSpotlightAndCounters(movies);
+        } catch (err) {
+            console.warn('Counters initial update failed:', err);
+        }
     } else {
         // User logged out
         currentUser = null;
+        // Chiude tutti i listener Firestore attivi per evitare leak
+        unregisterAll();
         invalidateMoviesCache();
         loginBtn.style.display = 'inline-block';
         if (logoutBtn) logoutBtn.style.display = 'none';
@@ -413,8 +418,8 @@ tmdbSearch.addEventListener('input', (e) => {
         data.results.slice(0,5).forEach(movie=>{
             const div = document.createElement('div'); 
             div.className = 'dropdown-item'; 
-            const posterHtml = movie.poster_path ? `<img src="https://image.tmdb.org/t/p/w92${movie.poster_path}" class="dropdown-poster">` : `<div class="dropdown-poster" style="background:#0c0e12;"></div>`;
-            div.innerHTML = `${posterHtml} <span>${movie.title} (${movie.release_date?.split('-')[0]||'N/A'})</span>`;
+            const posterHtml = movie.poster_path ? `<img src="https://image.tmdb.org/t/p/w92${encodeURIComponent(movie.poster_path).replace(/%2F/g,'/')}" alt="" class="dropdown-poster">` : `<div class="dropdown-poster" style="background:#0c0e12;"></div>`;
+            div.innerHTML = `${posterHtml} <span>${escapeHtml(movie.title)} (${escapeHtml(movie.release_date?.split('-')[0]||'N/A')})</span>`;
             div.onclick = () => fetchMovieDetailsAndSelect(movie.id);
             searchResults.appendChild(div);
         });
@@ -439,6 +444,10 @@ async function fetchMovieDetailsAndSelect(movieId) {
         runtime: movie.runtime ? `${movie.runtime} min` : 'N/A',
         cast: castArray,
         tmdbId: movieId,
+        // IMDb-first: salviamo l'id IMDb in modo che i prossimi accessi
+        // possano risolvere il film senza più ricerche per titolo (zero ambiguità).
+        imdbId: movie.external_ids?.imdb_id || movie.imdb_id || null,
+        originalTitle: movie.original_title || movie.title || '',
         production_countries: Array.isArray(movie.production_countries) ? movie.production_countries : []
     };
 
@@ -470,6 +479,8 @@ document.getElementById('movieForm').onsubmit = async(e)=>{
         runtime: currentSelectedMovieExtras.runtime || 'N/A',
         cast: currentSelectedMovieExtras.cast || [],
         tmdbId: currentSelectedMovieExtras.tmdbId || null,
+        imdbId: currentSelectedMovieExtras.imdbId || null,
+        originalTitle: currentSelectedMovieExtras.originalTitle || '',
         production_countries: Array.isArray(currentSelectedMovieExtras.production_countries) ? currentSelectedMovieExtras.production_countries : []
     };
 
@@ -615,7 +626,8 @@ async function getFilteredMovies(offset, limit){
     if (isWatchlistMode && sort === 'newest_added') {
         // Nella watchlist usa l'ordine manuale (drag & drop)
         movies.sort((a,b) => (a.order || 0) - (b.order || 0));
-    } else if(sort === 'highest_rated') movies.sort((a,b)=>b.rating - a.rating);
+    } else if(sort === 'highest_rated') movies.sort((a,b)=>(b.rating||0) - (a.rating||0));
+    else if(sort === 'lowest_rated') movies.sort((a,b)=>(a.rating||0) - (b.rating||0));
     else if(sort === 'year_new') movies.sort((a,b)=>parseInt(b.year)-parseInt(a.year));
     else if(sort === 'year_old') movies.sort((a,b)=>parseInt(a.year)-parseInt(b.year));
     else movies.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -687,15 +699,15 @@ async function showExploreMovieDetails(tmdbId) {
     const originalLanguage = movie.original_language ? movie.original_language.toUpperCase() : 'N/A';
     
     content.innerHTML = `
-    <h2>${movie.title} (${releaseYear})</h2>
-    ${poster ? `<img src="${poster}" class="explore-movie-poster">` : ''}
-    <p><strong>Release Year:</strong> ${releaseYear}</p>
-    <p><strong>Original Language:</strong> ${originalLanguage}</p>
-    <p><strong>Average Rating:</strong> ⭐ ${movie.vote_average?.toFixed(1)} (${movie.vote_count} votes)</p>
-    <p><strong>Director:</strong> ${director}</p>
-    <p><strong>Genres:</strong> ${genres}</p>
-    <p><strong>Runtime:</strong> ${runtime}</p>
-    <p><strong>Overview:</strong> ${movie.overview || 'No overview available.'}</p>
+    <h2>${escapeHtml(movie.title)} (${escapeHtml(releaseYear)})</h2>
+    ${poster ? `<img src="${escapeAttr(poster)}" alt="" class="explore-movie-poster">` : ''}
+    <p><strong>Release Year:</strong> ${escapeHtml(releaseYear)}</p>
+    <p><strong>Original Language:</strong> ${escapeHtml(originalLanguage)}</p>
+    <p><strong>Average Rating:</strong> ⭐ ${escapeHtml(movie.vote_average?.toFixed(1))} (${escapeHtml(movie.vote_count)} votes)</p>
+    <p><strong>Director:</strong> ${escapeHtml(director)}</p>
+    <p><strong>Genres:</strong> ${escapeHtml(genres)}</p>
+    <p><strong>Runtime:</strong> ${escapeHtml(runtime)}</p>
+    <p><strong>Overview:</strong> ${escapeHtml(movie.overview || 'No overview available.')}</p>
     <button class="btn-primary" id="addFromExploreBtn">➕ Add to Your List</button>
     <!-- 👇 AGGIUNGI QUESTO PULSANTE -->
     <button class="btn-primary" id="openFullDetailsBtn" style="background:#1e293b; margin-top:8px;">📊 Full Details</button>
@@ -708,7 +720,11 @@ async function showExploreMovieDetails(tmdbId) {
     });
 
     document.getElementById('openFullDetailsBtn').addEventListener('click', () => {
-        showFullMovieDetails(tmdbId, movie.imdb_id);
+        showFullMovieDetails(tmdbId, {
+            imdbId: movie.imdb_id,
+            imdbRating: movie.imdb_rating,
+            imdbVotes: movie.imdb_votes
+        });
     });
     
     openModal('exploreMovieModal');
@@ -743,8 +759,6 @@ async function loadExploreGenres() {
         // Opzionalmente: lascia la select vuota o nascondi il filtro
     }
 }
-loadExploreGenres().catch(err => console.error('Errore nel caricamento generi:', err));
-
 document.getElementById('applyExploreFilters')?.addEventListener('click', () => {
     exploreFilters.genre = document.getElementById('exploreGenre').value;
     exploreFilters.year = document.getElementById('exploreYear').value;
@@ -769,13 +783,13 @@ function createCardElement(movie, isWatchlistMode) {
     card.setAttribute('data-id', movie.id);
     card.innerHTML = `
         <div class="poster-container">
-            <img src="${movie.poster}" loading="lazy">
+            <img src="${escapeAttr(movie.poster)}" alt="" loading="lazy">
         </div>
         <div class="card-info">
-            <h3>${movie.title}</h3>
-            <div class="card-awards-mini">${(movie.awards||[]).map(a => `<span class="award-badge" title="${a}">${a.split(' ')[0]}</span>`).join('')}</div>
+            <h3>${escapeHtml(movie.title)}</h3>
+            <div class="card-awards-mini">${(movie.awards||[]).map(a => `<span class="award-badge" title="${escapeAttr(a)}">${escapeHtml(a.split(' ')[0])}</span>`).join('')}</div>
             <div class="quick-tools">
-                <span style="color:var(--accent);">★ ${movie.rating||'-'}</span>
+                <span style="color:var(--accent);">★ ${escapeHtml(movie.rating||'-')}</span>
                 <button class="btn-quick vote-btn">VOTE</button>
             </div>
         </div>
@@ -901,18 +915,38 @@ async function loadMoreMovies() {
         newMovies.forEach(m => {
             const card = document.createElement('div');
             card.className = 'movie-card';
+            const tmdbAvg = m.vote_average?.toFixed(1) || 'N/A';
+            const releaseYear = m.year || m.release_date?.split('-')[0] || '';
             card.innerHTML = `
                 <div class="poster-container">
-                    <img src="${m.poster}" loading="lazy">
+                    <img src="${escapeAttr(m.poster)}" alt="" loading="lazy">
                 </div>
                 <div class="card-info">
-                    <h3>${m.title}</h3>
-                    <p style="color:var(--accent); margin:0.5rem 0;">
-                        ⭐ ${m.vote_average?.toFixed(1) || 'N/A'} 
-                        <small style="color:var(--text-muted);">(${m.vote_count || 0} votes)</small>
+                    <h3>${escapeHtml(m.title)}</h3>
+                    <p class="explore-rating-line" data-imdb-state="loading">
+                        ⭐ <span class="explore-rating-value">${escapeHtml(tmdbAvg)}</span>
+                        <small class="explore-rating-meta">IMDb caricamento…</small>
                     </p>
                 </div>
             `;
+
+            // Lazy IMDb fetch — non blocca il render
+            if (m.title) {
+                fetchImdbRating({ title: m.title, year: releaseYear }).then(imdb => {
+                    const valueEl = card.querySelector('.explore-rating-value');
+                    const metaEl = card.querySelector('.explore-rating-meta');
+                    const lineEl = card.querySelector('.explore-rating-line');
+                    if (!valueEl || !metaEl || !lineEl) return;
+                    if (imdb?.rating) {
+                        valueEl.textContent = imdb.rating;
+                        metaEl.textContent = imdb.votes ? `IMDb · ${imdb.votes}` : 'IMDb';
+                        lineEl.dataset.imdbState = 'ok';
+                    } else {
+                        metaEl.textContent = `TMDB (IMDb n/d)`;
+                        lineEl.dataset.imdbState = 'fallback';
+                    }
+                });
+            }
 
             let touchStartX = 0, touchStartY = 0, touchMoved = false, touchStartTime = 0;
 
@@ -1024,10 +1058,10 @@ async function openReview(id, movieData = null) {
     // Popola i campi immediatamente
     document.getElementById('viewTitle').innerText = m.title;
     document.getElementById('viewRating').innerText = m.isWatchlist ? "Watchlist" : `★ ${m.rating}/10`;
-    document.getElementById('viewMetadata').innerHTML = `${m.director} | ${m.year} | ${m.runtime} | ${m.genres}`;
+    document.getElementById('viewMetadata').textContent = `${m.director} | ${m.year} | ${m.runtime} | ${m.genres}`;
     document.getElementById('viewPlot').innerText = m.plot;
-    document.getElementById('dynamicBackdrop').style.backgroundImage = `url('${m.backdrop}')`;
-    document.getElementById('viewAwards').innerHTML = (m.awards || []).map(a => `<span>${a}</span>`).join('');
+    document.getElementById('dynamicBackdrop').style.backgroundImage = `url('${encodeURI(m.backdrop || '')}')`;
+    document.getElementById('viewAwards').innerHTML = (m.awards || []).map(a => `<span>${escapeHtml(a)}</span>`).join('');
 
     const cont = document.getElementById('reviewContainer');
     if (m.fileData) {
@@ -1046,25 +1080,32 @@ async function openReview(id, movieData = null) {
     // Operazioni in background, senza bloccare l'interfaccia
     showSimilarMovies(id);
 
-    // Recupera i rating OMDb in silenzio
+    // Recupera i rating IMDb/RT/Metacritic via proxy server-side.
+    // Nessuna API key OMDb esposta al browser; risultati cached per 7 giorni
+    // in Firestore (condivisi tra utenti) + IndexedDB locale.
     if (omdbContainer) {
         try {
-            const omdbRes = await fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(m.title)}&y=${m.year}&apikey=3bab6459`);
-            const omdbData = await omdbRes.json();
-            if (omdbData.Response === 'True') {
-                const ratings = omdbData.Ratings || [];
-                const imdb = ratings.find(r => r.Source === 'Internet Movie Database');
-                const rt = ratings.find(r => r.Source === 'Rotten Tomatoes');
-                const meta = ratings.find(r => r.Source === 'Metacritic');
+            const data = await fetchImdbRating({
+                imdbId: m.imdbId || m.imdb_id,
+                title: m.title,
+                year: m.year
+            });
+            const ratings = Array.isArray(data?.ratings) ? data.ratings : [];
+            const imdbValue = data?.rating
+                ? { Source: 'Internet Movie Database', Value: `${data.rating}/10` }
+                : ratings.find(r => r.Source === 'Internet Movie Database');
+            const rt = ratings.find(r => r.Source === 'Rotten Tomatoes');
+            const meta = ratings.find(r => r.Source === 'Metacritic');
+            if (imdbValue || rt || meta) {
                 let html = '<div style="margin-top: 10px; font-size: 0.9rem; color: var(--text-muted);">';
-                if (imdb) html += `🎬 IMDb: ${imdb.Value} `;
-                if (rt) html += `🍅 Rotten Tomatoes: ${rt.Value} `;
-                if (meta) html += `📊 Metacritic: ${meta.Value}`;
+                if (imdbValue) html += `🎬 IMDb: ${escapeHtml(imdbValue.Value)} `;
+                if (rt) html += `🍅 Rotten Tomatoes: ${escapeHtml(rt.Value)} `;
+                if (meta) html += `📊 Metacritic: ${escapeHtml(meta.Value)}`;
                 html += '</div>';
                 omdbContainer.innerHTML = html;
             }
         } catch (e) {
-            console.warn('OMDb unreachable');
+            console.warn('OMDb proxy unreachable');
         }
     }
 
@@ -1078,11 +1119,36 @@ async function openReview(id, movieData = null) {
     fullDetailsBtn.style.marginTop = '10px';
     fullDetailsBtn.innerText = '📊 Full Details';
     fullDetailsBtn.addEventListener('click', async () => {
-        const movieResult = await getFirstMovieByTitleYear(m.title, m.year);
-        if (movieResult) {
-            showFullMovieDetails(movieResult.id);
-        } else {
-            alert('Movie not found on TMDB.');
+        // resolveSavedMovieToTmdb è SEMPRE chiamato anche se m.tmdbId esiste:
+        //   1) imdbId (autoritativo)
+        //   2) tmdbId salvato, MA solo se il titolo combacia ancora (per
+        //      record legacy con tmdbId sbagliato)
+        //   3) match stretto su titolo+anno+paese+regista
+        // Niente fallback al primo risultato di ricerca: meglio errore
+        // esplicito che metadata sbagliata ("Wonder" ≠ "Wonder Woman").
+        fullDetailsBtn.disabled = true;
+        try {
+            const resolved = await resolveSavedMovieToTmdb(m);
+            if (resolved?.id) {
+                const resolvedImdb = resolved.external_ids?.imdb_id || resolved.imdb_id || m.imdbId || null;
+                // Se la risoluzione ha corretto un tmdbId/imdbId sbagliato,
+                // aggiorniamo il record salvato in modo che le prossime
+                // aperture siano istantanee e già corrette.
+                const patch = {};
+                if (resolved.id && String(resolved.id) !== String(m.tmdbId || '')) patch.tmdbId = resolved.id;
+                if (resolvedImdb && resolvedImdb !== m.imdbId) patch.imdbId = resolvedImdb;
+                if (Object.keys(patch).length && currentMovieId && currentUser) {
+                    try {
+                        await updateDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId), patch);
+                        updateMovieInCache(currentMovieId, patch);
+                    } catch (_) { /* best effort */ }
+                }
+                showFullMovieDetails(resolved.id, { imdbId: resolvedImdb });
+            } else {
+                showToast(`Impossibile risolvere "${m.title}" su IMDb/TMDB`, 4500);
+            }
+        } finally {
+            fullDetailsBtn.disabled = false;
         }
     });
     document.getElementById('reviewContainer').insertAdjacentElement('afterend', fullDetailsBtn);
@@ -1121,26 +1187,100 @@ document.getElementById('editBtn').addEventListener('click', async (event) => {
 
 document.getElementById('deleteBtn').addEventListener('click', async (event) => {
     event.preventDefault();
-    if(confirm("Delete forever?")){
-        await deleteDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
-        removeMovieFromCache(currentMovieId);
-        closeModal('reviewModal');
-        renderGallery();
-    }
+    const ok = await askConfirm({
+        title: 'Eliminare il film?',
+        message: 'Verrà rimosso definitivamente dalla tua collezione. L\'azione non può essere annullata.',
+        confirmText: 'Elimina',
+        cancelText: 'Annulla',
+        danger: true,
+        icon: '🗑️'
+    });
+    if (!ok) return;
+    await deleteDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
+    removeMovieFromCache(currentMovieId);
+    closeModal('reviewModal');
+    renderGallery();
 });
 
 // --- SIMILAR MOVIES & RECOMMENDATIONS ---
+// Discovery-focused: pulls suggestions from TMDB, hides anything the user
+// already has in their watched collection, and flags items still in the
+// watchlist with a small badge. All filtering happens against the in-memory
+// cache — no extra Firestore reads.
 async function showSimilarMovies(id){
+    const grid = document.getElementById('similarGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
     const movies = await fetchAllMovies();
     const current = movies.find(m => m.id === id);
-    const scored = movies.filter(m => !m.isWatchlist && m.id !== id).map(m => {
-        let s=0; if(m.director === current.director) s+=5; 
-        if(m.genres?.split(', ').some(g => current.genres?.includes(g))) s+=3;
-        return {movie:m, score:s};
-    }).sort((a,b)=>b.score-a.score).slice(0,4);
-    const grid = document.getElementById('similarGrid');
-    grid.innerHTML = '';
-    scored.forEach(({movie})=> grid.appendChild(createSmallCard(movie)));
+    if (!current) return;
+
+    // Risolvi SEMPRE con il validator: imdbId → tmdbId validato → matcher
+    // stretto. Niente fallback al primo risultato. Anche se il record ha già
+    // un tmdbId, lo validiamo (potrebbe puntare al film sbagliato per
+    // record legacy importati con la vecchia logica).
+    let tmdbId = null;
+    try {
+        const resolved = await resolveSavedMovieToTmdb(current);
+        tmdbId = resolved?.id || null;
+    } catch (err) {
+        console.warn('TMDB lookup for similar failed:', err);
+    }
+    if (!tmdbId) {
+        console.info('[similar] no tmdbId for', current.title);
+        return;
+    }
+
+    let results = [];
+    try {
+        const data = await getSimilarMovies(tmdbId);
+        results = Array.isArray(data?.results) ? data.results : [];
+    } catch (err) {
+        console.warn('Similar movies fetch failed:', err);
+        return;
+    }
+
+    const watchedIds = new Set();
+    const watchlistIds = new Set();
+    for (const m of movies) {
+        if (!m.tmdbId) continue;
+        const key = String(m.tmdbId);
+        if (m.isWatchlist) watchlistIds.add(key);
+        else watchedIds.add(key);
+    }
+
+    // Soglia di notorietà: scarta i titoli con pochi voti su TMDB per evitare
+    // suggerimenti di film praticamente sconosciuti.
+    const MIN_VOTE_COUNT = 1000;
+
+    const discovery = [];
+    for (const r of results) {
+        if (!r?.id) continue;
+        if ((r.vote_count || 0) < MIN_VOTE_COUNT) continue;
+        const key = String(r.id);
+        if (watchedIds.has(key)) continue;
+        discovery.push({ tmdb: r, inWatchlist: watchlistIds.has(key) });
+        if (discovery.length >= 4) break;
+    }
+
+    discovery.forEach(({ tmdb, inWatchlist }) => {
+        grid.appendChild(createDiscoveryCard(tmdb, inWatchlist));
+    });
+}
+
+function createDiscoveryCard(tmdb, inWatchlist) {
+    const div = document.createElement('div');
+    div.className = 'movie-card discovery-card';
+    div.onclick = () => showFullMovieDetails(tmdb.id);
+    const poster = tmdb.poster_path
+        ? `https://image.tmdb.org/t/p/w500${tmdb.poster_path}`
+        : 'https://via.placeholder.com/500x750?text=No+Poster';
+    const badge = inWatchlist
+        ? `<span class="watchlist-badge" title="In Watchlist" aria-label="In Watchlist">🔖</span>`
+        : '';
+    div.innerHTML = `<div class="poster-container">${badge}<img src="${escapeAttr(poster)}" alt=""></div><div class="card-info"><h3>${escapeHtml(tmdb.title || '')}</h3></div>`;
+    return div;
 }
 
 
@@ -1157,6 +1297,182 @@ function startDynamicSpotlight() {
 }
 
 
+// ---------------------------------------------------------------------------
+// SURPRISE ME — random pick dalla watchlist con filtri (durata / genere /
+// decennio) + animazione reveal e reroll.
+//
+// Visibile solo in modalità watchlist (vedi syncFilterUI → syncSurpriseButton).
+// ---------------------------------------------------------------------------
+
+function syncSurpriseButton() {
+    const btn = document.getElementById('surpriseMeBtn');
+    if (!btn) return;
+    const mode = document.getElementById('viewMode')?.value;
+    btn.hidden = mode !== 'watchlist';
+}
+
+function parseRuntimeMinutes(rt) {
+    if (!rt) return null;
+    if (typeof rt === 'number') return rt;
+    const m = String(rt).match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
+}
+
+function getWatchlistCandidates(filters) {
+    const movies = cachedMovies || [];
+    const maxMin = filters.maxRuntime ? parseInt(filters.maxRuntime, 10) : null;
+    const genreFilter = filters.genre ? filters.genre.toLowerCase() : '';
+    const decadeStart = filters.decade ? parseInt(filters.decade, 10) : null;
+
+    return movies.filter(m => {
+        if (!m.isWatchlist) return false;
+        if (maxMin) {
+            const min = parseRuntimeMinutes(m.runtime);
+            // Se il runtime non è noto, NON lo escludiamo (l'utente preferisce
+            // candidati possibili a candidati vuoti). Saltarlo darebbe risultati
+            // a sorpresa troppo poveri.
+            if (min !== null && min > maxMin) return false;
+        }
+        if (genreFilter) {
+            const g = (m.genres || '').toLowerCase();
+            if (!g.includes(genreFilter)) return false;
+        }
+        if (decadeStart !== null) {
+            const y = parseInt(m.year, 10);
+            if (!Number.isFinite(y)) return false;
+            if (decadeStart === 1960) {
+                if (y > 1969) return false;
+            } else {
+                if (y < decadeStart || y > decadeStart + 9) return false;
+            }
+        }
+        return true;
+    });
+}
+
+let _lastSurpriseId = null;
+
+function pickRandomFromList(list) {
+    if (!list.length) return null;
+    if (list.length === 1) return list[0];
+    // Evita di mostrare lo stesso film due volte di fila quando possibile.
+    for (let i = 0; i < 5; i++) {
+        const pick = list[Math.floor(Math.random() * list.length)];
+        if (pick.id !== _lastSurpriseId) return pick;
+    }
+    return list[Math.floor(Math.random() * list.length)];
+}
+
+function renderSurpriseResult(movie) {
+    const empty = document.getElementById('surpriseEmpty');
+    const result = document.getElementById('surpriseResult');
+    const rerollBtn = document.getElementById('surpriseRerollBtn');
+    const openBtn = document.getElementById('surpriseOpenBtn');
+    const pickBtn = document.getElementById('surprisePickBtn');
+    if (!result) return;
+
+    if (!movie) {
+        empty.hidden = false;
+        result.hidden = true;
+        result.innerHTML = '';
+        rerollBtn.hidden = true;
+        openBtn.hidden = true;
+        pickBtn.querySelector('.surprise-pick-label').textContent = 'Pick a film';
+        empty.innerHTML = `
+            <span class="surprise-dice" aria-hidden="true">🎲</span>
+            <p>Nessun film nella watchlist corrisponde ai filtri scelti. Prova ad allargarli.</p>
+        `;
+        return;
+    }
+
+    _lastSurpriseId = movie.id;
+    empty.hidden = true;
+    result.hidden = false;
+    rerollBtn.hidden = false;
+    openBtn.hidden = false;
+    pickBtn.querySelector('.surprise-pick-label').textContent = 'Pick again';
+
+    const year = movie.year || '—';
+    const runtime = movie.runtime || '—';
+    const director = movie.director || '—';
+    const genres = movie.genres || '';
+    const plot = (movie.plot || '').slice(0, 240);
+    const poster = movie.poster || 'https://via.placeholder.com/500x750?text=No+Poster';
+
+    result.innerHTML = `
+        <div class="surprise-card">
+            <div class="surprise-card-poster">
+                <img src="${escapeAttr(poster)}" alt="${escapeAttr(movie.title)}" loading="lazy">
+            </div>
+            <div class="surprise-card-info">
+                <h3 class="surprise-card-title">${escapeHtml(movie.title)}</h3>
+                <p class="surprise-card-meta">${escapeHtml(director)} · ${escapeHtml(String(year))} · ${escapeHtml(runtime)}</p>
+                ${genres ? `<p class="surprise-card-genres">${escapeHtml(genres)}</p>` : ''}
+                ${plot ? `<p class="surprise-card-plot">${escapeHtml(plot)}${movie.plot && movie.plot.length > 240 ? '…' : ''}</p>` : ''}
+            </div>
+        </div>
+    `;
+    // Trigger reveal animation
+    requestAnimationFrame(() => {
+        const card = result.querySelector('.surprise-card');
+        if (card) {
+            card.classList.add('reveal');
+        }
+    });
+
+    openBtn.onclick = () => {
+        closeModal('surpriseModal', true);
+        window.openReview(movie.id, movie);
+    };
+}
+
+async function populateSurpriseGenreSelect() {
+    const select = document.getElementById('surpriseGenre');
+    if (!select) return;
+    const movies = await fetchAllMovies();
+    const genres = new Set();
+    movies.filter(m => m.isWatchlist).forEach(m => {
+        (m.genres || '').split(',').forEach(g => {
+            const trimmed = g.trim();
+            if (trimmed) genres.add(trimmed);
+        });
+    });
+    const sorted = Array.from(genres).sort();
+    const current = select.value;
+    select.innerHTML = '<option value="">Qualsiasi</option>' +
+        sorted.map(g => `<option value="${escapeAttr(g)}">${escapeHtml(g)}</option>`).join('');
+    if (current && sorted.includes(current)) select.value = current;
+}
+
+async function openSurpriseModal() {
+    await fetchAllMovies(); // popola cache
+    await populateSurpriseGenreSelect();
+    renderSurpriseResult(null);
+    openModal('surpriseModal');
+}
+
+async function rollSurprise() {
+    await fetchAllMovies();
+    const filters = {
+        maxRuntime: document.getElementById('surpriseRuntime').value,
+        genre: document.getElementById('surpriseGenre').value,
+        decade: document.getElementById('surpriseDecade').value
+    };
+    const candidates = getWatchlistCandidates(filters);
+    const pick = pickRandomFromList(candidates);
+    renderSurpriseResult(pick);
+    if (pick) hapticFeedback('medium');
+}
+
+document.getElementById('surpriseMeBtn')?.addEventListener('click', openSurpriseModal);
+document.getElementById('surprisePickBtn')?.addEventListener('click', rollSurprise);
+document.getElementById('surpriseRerollBtn')?.addEventListener('click', rollSurprise);
+document.querySelector('.close-surprise')?.addEventListener('click', () => closeModal('surpriseModal'));
+window.addEventListener('click', (event) => {
+    const modal = document.getElementById('surpriseModal');
+    if (event.target === modal) closeModal('surpriseModal');
+});
+
 // --- LISTENERS & IMPORT ---
 document.getElementById('viewMode').onchange = () => {
     const gallery = document.getElementById('gallery');
@@ -1167,12 +1483,19 @@ document.getElementById('viewMode').onchange = () => {
     const mode = document.getElementById('viewMode').value;
     syncFilterUI(mode);
 
-    if (mode === 'explore') {
-        resetInfiniteScroll();
-    } else {
-        renderGallery();
-    }
-    startDynamicSpotlight();
+    // Crossfade transition: fade out current content, swap, fade back in.
+    const appRoot = document.getElementById('app');
+    const FADE_MS = 200;
+    appRoot?.classList.add('view-fading-out');
+    setTimeout(() => {
+        if (mode === 'explore') {
+            resetInfiniteScroll();
+        } else {
+            renderGallery();
+        }
+        startDynamicSpotlight();
+        requestAnimationFrame(() => appRoot?.classList.remove('view-fading-out'));
+    }, FADE_MS);
 };
 
 document.getElementById('repairMetadataBtn')?.addEventListener('click', async () => {
@@ -1197,27 +1520,44 @@ document.getElementById('repairMetadataBtn')?.addEventListener('click', async ()
         statusEl.innerText = `Repairing: ${movie.title} (${completed + 1} of ${total})`;
         barEl.style.width = `${(completed / total) * 100}%`;
         try {
-            const sData = await searchMoviesWithYear(movie.title, movie.year);
-            if (sData.results?.length) {
-                const tmdb = sData.results[0];
-                const [detRes, credRes] = await Promise.all([
-                    getMovieDetails(tmdb.id),
-                    getMovieCredits(tmdb.id)
-                ]);
+            // Matcher stretto: usa imdbId/director/country se già presenti
+            // sul record, così evitiamo di sostituire un metadato corretto
+            // con uno preso da un film omonimo (es. "Wonder" ≠ "Wonder Woman").
+            const tmdb = await findBestMovieMatch({
+                title: movie.title,
+                originalTitle: movie.originalTitle,
+                year: movie.year,
+                director: movie.director,
+                country: movie.production_countries?.[0]?.iso_3166_1,
+                imdbId: movie.imdbId
+            });
+            if (tmdb?.id) {
+                const detRes = await getMovieDetails(tmdb.id, 'credits,external_ids');
+                const credRes = detRes.credits || { cast: [], crew: [] };
                 const director = credRes.crew?.find(p => p.job === 'Director')?.name || 'Unknown';
                 const genres = detRes.genres?.map(g => g.name).join(', ') || '';
                 const runtime = detRes.runtime ? `${detRes.runtime} min` : 'N/A';
                 const year = detRes.release_date?.split('-')[0] || movie.year;
                 const cast = credRes.cast?.slice(0, 10).map(a => a.name) || [];
+                const imdbId = detRes.external_ids?.imdb_id || detRes.imdb_id || movie.imdbId || null;
+                const originalTitle = detRes.original_title || movie.originalTitle || '';
+                const production_countries = Array.isArray(detRes.production_countries)
+                    ? detRes.production_countries
+                    : (movie.production_countries || []);
 
-                await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), {
+                const patch = {
                     director,
                     genres,
                     runtime,
                     year,
-                    cast   // 👈 aggiunto il cast
-                });
-                updateMovieInCache(movie.id, { director, genres, runtime, year, cast });
+                    cast,
+                    tmdbId: tmdb.id,
+                    imdbId,
+                    originalTitle,
+                    production_countries
+                };
+                await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), patch);
+                updateMovieInCache(movie.id, patch);
             }
         } catch (err) {
             console.error(`Error repairing ${movie.title}:`, err);
@@ -1333,25 +1673,27 @@ if (csvFileInput) csvFileInput.onchange = async (e) => {
                 statusEl.innerText = `Importing: ${row.Name} (${completed + 1} of ${total})`;
                 barEl.style.width = `${(completed / total) * 100}%`;
                 try {
-                    // Prima cerca il film
-                    const sData = await searchMoviesWithYear(row.Name, row.Year);
-                    if (sData.results?.length) {
-                        const tmdb = sData.results[0];
-                        // Ottieni dettagli completi e crediti
-                        const [detRes, credRes] = await Promise.all([
-                            getMovieDetails(tmdb.id),
-                            getMovieCredits(tmdb.id)
-                        ]);
+                    // Matching stretto su titolo+anno (Letterboxd non espone
+                    // director/country in CSV). Evita di assegnare "Wonder Woman"
+                    // a una riga "Wonder".
+                    const tmdb = await findBestMovieMatch({
+                        title: row.Name,
+                        year: row.Year
+                    });
+                    if (tmdb?.id) {
+                        const detRes = await getMovieDetails(tmdb.id, 'credits,external_ids');
+                        const credRes = detRes.credits || { cast: [], crew: [] };
                         const director = credRes.crew?.find(p => p.job === 'Director')?.name || 'Unknown';
                         const genres = detRes.genres?.map(g => g.name).join(', ') || '';
                         const runtime = detRes.runtime ? `${detRes.runtime} min` : 'N/A';
                         const year = detRes.release_date?.split('-')[0] || tmdb.release_date?.split('-')[0] || row.Year;
+                        const cast = credRes.cast?.slice(0, 10).map(a => a.name) || [];
 
                         await addDoc(collection(db, "users", currentUser.uid, "movies"), {
-                            title: tmdb.title,
-                            poster: `https://image.tmdb.org/t/p/w500${tmdb.poster_path}`,
+                            title: detRes.title || tmdb.title,
+                            poster: `https://image.tmdb.org/t/p/w500${detRes.poster_path || tmdb.poster_path}`,
                             backdrop: detRes.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detRes.backdrop_path}` : '',
-                            plot: tmdb.overview,
+                            plot: detRes.overview || tmdb.overview,
                             rating: row.Rating ? parseFloat(row.Rating) * 2 : null,
                             watchDate: row['Watched Date'] || null,
                             isWatchlist: !row.Rating,
@@ -1359,6 +1701,11 @@ if (csvFileInput) csvFileInput.onchange = async (e) => {
                             genres,
                             runtime,
                             year,
+                            cast,
+                            tmdbId: tmdb.id,
+                            imdbId: detRes.external_ids?.imdb_id || detRes.imdb_id || null,
+                            originalTitle: detRes.original_title || tmdb.original_title || '',
+                            production_countries: Array.isArray(detRes.production_countries) ? detRes.production_countries : [],
                             awards: [],
                             createdAt: serverTimestamp(),
                             order: Date.now() + completed // per ordinamento
@@ -1432,80 +1779,180 @@ window.syncAwardChips = function() {
 
 
 
-async function showFullMovieDetails(tmdbId, imdbId = null) {
+async function showFullMovieDetails(tmdbId, imdbIdOrOpts = null) {
+    // Accetta sia la vecchia firma (imdbId string) sia un oggetto opzioni.
+    const opts = (typeof imdbIdOrOpts === 'object' && imdbIdOrOpts !== null)
+        ? imdbIdOrOpts
+        : { imdbId: imdbIdOrOpts };
+    const imdbId = opts.imdbId || null;
+    const cachedImdbRating = opts.imdbRating || null;
+    const cachedImdbVotes = opts.imdbVotes || null;
+
     const modal = document.getElementById('movieDetailsModal');
     const content = document.getElementById('movieDetailsContent');
-    content.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Loading full details…</p>';
+    content.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:3rem 1rem;">Loading full details…</p>';
     openModal('movieDetailsModal');
 
     try {
         const movie = await getMovieDetails(tmdbId, 'credits,external_ids,release_dates');
 
-        const genres = movie.genres?.map(g => g.name).join(', ') || 'N/A';
+        const genresArr = movie.genres?.map(g => g.name) || [];
         const director = movie.credits?.crew?.find(p => p.job === 'Director')?.name || 'N/A';
         const runtime = movie.runtime ? `${movie.runtime} min` : 'N/A';
         const poster = movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : '';
+        const backdrop = movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : (movie.poster_path ? `https://image.tmdb.org/t/p/w1280${movie.poster_path}` : '');
         const releaseYear = movie.release_date ? movie.release_date.split('-')[0] : 'N/A';
         const language = movie.original_language?.toUpperCase() || 'N/A';
         const countries = movie.production_countries?.map(c => c.name).join(', ') || 'N/A';
-        const budget = movie.budget > 0 ? `$${(movie.budget / 1_000_000).toFixed(0)}M` : 'N/A';
-        const revenue = movie.revenue > 0 ? `$${(movie.revenue / 1_000_000).toFixed(0)}M` : 'N/A';
-        const cast = movie.credits?.cast?.slice(0, 10).map(a => a.name).join(', ') || 'N/A';
-        const imdbActual = movie.imdb_id || imdbId;
+        const budget = movie.budget > 0 ? `$${(movie.budget / 1_000_000).toFixed(0)}M` : '—';
+        const revenue = movie.revenue > 0 ? `$${(movie.revenue / 1_000_000).toFixed(0)}M` : '—';
+        const castArr = (movie.credits?.cast || []).slice(0, 10);
+        const tagline = movie.tagline || '';
+        const tmdbVoteAvg = movie.vote_average ? movie.vote_average.toFixed(1) : '—';
+        const tmdbVoteCount = movie.vote_count || 0;
+        const imdbActual = movie.external_ids?.imdb_id || movie.imdb_id || imdbId;
+
+        // 1° priorità: dati IMDb già salvati in Firestore (post-repair, no fetch).
+        // 2° priorità: fetch OMDb (con cache di sessione interna).
+        let ratingValue = tmdbVoteAvg;
+        let ratingLabel = `TMDB · ${tmdbVoteCount.toLocaleString('it-IT')} voti`;
+
+        if (cachedImdbRating) {
+            ratingValue = cachedImdbRating;
+            ratingLabel = `IMDb · ${cachedImdbVotes || tmdbVoteCount.toLocaleString('it-IT')} voti`;
+        } else {
+            try {
+                const imdb = await fetchImdbRating({
+                    imdbId: imdbActual,
+                    title: movie.title,
+                    year: movie.release_date?.split('-')[0]
+                });
+                if (imdb?.rating) {
+                    ratingValue = imdb.rating;
+                    ratingLabel = `IMDb · ${imdb.votes || tmdbVoteCount.toLocaleString('it-IT')} voti`;
+                } else {
+                    ratingLabel = `TMDB · ${tmdbVoteCount.toLocaleString('it-IT')} voti <small>(IMDb non disponibile)</small>`;
+                }
+            } catch (e) {
+                // resta su TMDB
+            }
+        }
         const tmdbLink = `https://www.themoviedb.org/movie/${tmdbId}`;
         const imdbLink = imdbActual ? `https://www.imdb.com/title/${imdbActual}` : '#';
 
+        const heroStyle = backdrop ? `background-image: url('${escapeAttr(backdrop)}');` : '';
+        const genrePills = genresArr.map(g => `<span class="md-genre-pill">${escapeHtml(g)}</span>`).join('');
+        const castCards = castArr.map(actor => {
+            const photo = actor.profile_path
+                ? `<img class="md-cast-photo" src="https://image.tmdb.org/t/p/w185${escapeAttr(actor.profile_path)}" alt="${escapeAttr(actor.name)}" loading="lazy">`
+                : `<div class="md-cast-photo placeholder">👤</div>`;
+            return `
+                <div class="md-cast-card">
+                    ${photo}
+                    <span class="md-cast-name">${escapeHtml(actor.name)}</span>
+                    ${actor.character ? `<span class="md-cast-char">${escapeHtml(actor.character)}</span>` : ''}
+                </div>
+            `;
+        }).join('');
+
         content.innerHTML = `
-            <h2 style="font-family:'Cinzel',serif; margin:0;">${movie.title} (${releaseYear})</h2>
-            
-            <button class="btn-primary" id="addFromFullDetailsBtn" style="width:100%; padding:1rem; font-size:1.1rem; margin:15px 0;">
-                ➕ Add to Your List
-            </button>
-            
-            ${poster ? `<img src="${poster}" style="width:150px; align-self:center; border-radius:12px; margin:10px 0;">` : ''}
-            
-            <div class="detail-section">
-                <h4>🎬 Core Info</h4>
-                <p><strong>Director:</strong> ${director}</p>
-                <p><strong>Genres:</strong> ${genres}</p>
-                <p><strong>Runtime:</strong> ${runtime}</p>
-                <p><strong>Language:</strong> ${language}</p>
-                <p><strong>Countries:</strong> ${countries}</p>
-                <p><strong>Budget:</strong> ${budget} | <strong>Revenue:</strong> ${revenue}</p>
+            <div class="md-hero" style="${heroStyle}">
+                <div class="md-hero-overlay">
+                    <p class="md-hero-year">${escapeHtml(releaseYear)}${runtime !== 'N/A' ? ` · ${escapeHtml(runtime)}` : ''}</p>
+                    <h2 class="md-hero-title">${escapeHtml(movie.title)}</h2>
+                    ${tagline ? `<p class="md-hero-tagline">${escapeHtml(tagline)}</p>` : ''}
+                </div>
             </div>
 
-            <div class="detail-section">
-                <h4>🌟 Cast</h4>
-                <p>${cast}</p>
+            <div class="md-body">
+                <aside class="md-poster-col">
+                    ${poster ? `<img class="md-poster" src="${escapeAttr(poster)}" alt="${escapeAttr(movie.title)}">` : '<div class="md-poster" style="display:flex;align-items:center;justify-content:center;color:var(--text-muted);">No poster</div>'}
+                    <div class="md-rating-card">
+                        <span class="md-rating-value">${escapeHtml(ratingValue)}<span class="md-rating-max">/10</span></span>
+                        <p class="md-rating-label">${ratingLabel}</p>
+                    </div>
+                </aside>
+
+                <div class="md-content-col">
+                    ${movie.overview ? `
+                        <div class="md-section">
+                            <h4 class="md-section-title">Synopsis</h4>
+                            <p class="md-plot">${escapeHtml(movie.overview)}</p>
+                        </div>
+                    ` : ''}
+
+                    ${genrePills ? `
+                        <div class="md-section">
+                            <h4 class="md-section-title">Genres</h4>
+                            <div class="md-genre-row">${genrePills}</div>
+                        </div>
+                    ` : ''}
+
+                    <div class="md-section">
+                        <h4 class="md-section-title">Details</h4>
+                        <div class="md-meta-grid">
+                            <div class="md-meta">
+                                <span class="md-meta-label">Director</span>
+                                <span class="md-meta-value" title="${escapeAttr(director)}">${escapeHtml(director)}</span>
+                            </div>
+                            <div class="md-meta">
+                                <span class="md-meta-label">Language</span>
+                                <span class="md-meta-value">${escapeHtml(language)}</span>
+                            </div>
+                            <div class="md-meta">
+                                <span class="md-meta-label">Country</span>
+                                <span class="md-meta-value" title="${escapeAttr(countries)}">${escapeHtml(countries)}</span>
+                            </div>
+                            <div class="md-meta">
+                                <span class="md-meta-label">Budget · Revenue</span>
+                                <span class="md-meta-value">${escapeHtml(budget)} · ${escapeHtml(revenue)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${castArr.length ? `
+                        <div class="md-section">
+                            <h4 class="md-section-title">Cast</h4>
+                            <div class="md-cast-row">${castCards}</div>
+                        </div>
+                    ` : ''}
+                </div>
             </div>
 
-            <div class="detail-section">
-                <h4>📊 Ratings</h4>
-                <p><strong>TMDB Average:</strong> ⭐ ${movie.vote_average?.toFixed(1)} (${movie.vote_count} votes)</p>
-            </div>
-
-            <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;">
-                <!-- NUOVO PULSANTE FILMGRAB -->
-                <button class="btn-primary" id="openFilmGrabBtn" style="background:#1e293b; margin-top:10px;">📸 Stills on FilmGrab</button>
-                <a href="${tmdbLink}" target="_blank" class="external-link-btn">🌐 View on TMDB</a>
-                ${imdbLink !== '#' ? `<a href="${imdbLink}" target="_blank" class="external-link-btn">🎬 View on IMDb</a>` : ''}
+            <div class="md-actions">
+                <button class="btn-primary md-add-btn" id="addFromFullDetailsBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span>Add to Your List</span>
+                </button>
+                ${imdbLink !== '#' ? `
+                    <a href="${escapeAttr(imdbLink)}" target="_blank" rel="noopener noreferrer" class="external-link-btn md-imdb-btn">
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3" ry="3"/><text x="12" y="15.6" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="7" font-weight="900" fill="#000">IMDb</text></svg>
+                        <span>IMDb${imdbActual ? ` · ${escapeHtml(imdbActual)}` : ''}</span>
+                    </a>
+                ` : ''}
+                <button class="external-link-btn" id="openFilmGrabBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    <span>FilmGrab Stills</span>
+                </button>
+                <a href="${escapeAttr(tmdbLink)}" target="_blank" rel="noopener noreferrer" class="external-link-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <span>TMDB</span>
+                </a>
             </div>
         `;
 
-        // Listener per il pulsante “Add to Your List”
         document.getElementById('addFromFullDetailsBtn').addEventListener('click', async () => {
             await fetchMovieDetailsAndSelect(tmdbId);
             closeModal('movieDetailsModal', true);
             openModal('modal');
         });
 
-        // Listener per il pulsante FilmGrab
         document.getElementById('openFilmGrabBtn')?.addEventListener('click', () => {
             apriFilmGrab({ title: movie.title, tmdbId: tmdbId });
         });
 
     } catch (err) {
-        content.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Failed to load details.</p>';
+        content.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:3rem 1rem;">Failed to load details.</p>';
     }
 }
 
@@ -1583,7 +2030,6 @@ Domanda dell'utente: "${userQuery}"
 
 Rispondi in italiano, in modo simpatico e breve. Usa le informazioni sui generi, registi e voti per dare un consiglio mirato. Se la domanda non è chiara, chiedi maggiori dettagli.`;
 
-        const functions = getFunctions();
         const analyzeReview = httpsCallable(functions, 'analyzeReview');
         const result = await analyzeReview({ reviewText: prompt, action: 'chat' });
         return result.data?.result || 'Scusa, ho avuto un problema tecnico. Riprova tra poco.';

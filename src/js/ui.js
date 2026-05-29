@@ -8,10 +8,12 @@
  * In pratica, è quello che gestisce i "bottoni" e il look dell'app.
  */
 
-import { updateAdvancedStats, buildDirectorsRanking, buildActorsRanking, buildGenreChart, buildEloRanking } from './stats.js';
+import { updateAdvancedStats, buildDirectorsRanking, buildActorsRanking, buildGenreChart, buildEloRanking, cleanupStats, showVaultSkeleton, ISO2_TO_ISO3 } from './stats.js';
+import { renderProfileSkeleton, showToast } from './utils.js';
 import { auth, db, storage } from './firebase.js';
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 import { openModal, closeModal } from './modal-manager.js';
+import { fetchImdbRating, findBestMovieMatch, resolveSavedMovieToTmdb } from './tmdb.js';
 
 // --- UI MODULE: Modal Management and Theme Logic ---
 
@@ -51,20 +53,37 @@ export function initTheme() {
 
 // --- BOTTOM NAVIGATION ---
 export function initBottomNav() {
+    const nav = document.querySelector('.bottom-nav');
+    const indicator = nav?.querySelector('.bottom-nav-indicator');
     const items = document.querySelectorAll('.bottom-nav-item[data-view]');
     const viewSelect = document.getElementById('viewMode');
 
+    function positionIndicator() {
+        if (!nav || !indicator) return;
+        const active = nav.querySelector('.bottom-nav-item.active');
+        if (!active) {
+            indicator.classList.remove('ready');
+            return;
+        }
+        const navRect = nav.getBoundingClientRect();
+        const itemRect = active.getBoundingClientRect();
+        const left = itemRect.left - navRect.left;
+        indicator.style.width = `${itemRect.width}px`;
+        indicator.style.transform = `translateX(${left}px)`;
+        indicator.classList.add('ready');
+    }
+
     items.forEach(item => {
         item.addEventListener('click', () => {
-            // Rimuovi classe active da tutti
             items.forEach(i => i.classList.remove('active'));
-            // Aggiungila al cliccato
             item.classList.add('active');
+            positionIndicator();
 
             const view = item.getAttribute('data-view');
             if (view === 'stats') {
-                updateAdvancedStats();
+                showVaultSkeleton();
                 openModal('statsModal');
+                updateAdvancedStats();
             } else {
                 viewSelect.value = view;
                 viewSelect.onchange();
@@ -75,6 +94,34 @@ export function initBottomNav() {
     document.getElementById('bottomAddBtn')?.addEventListener('click', () => {
         closeForm();
         openModal('modal');
+    });
+
+    // Initial placement + keep in sync on resize/orientation.
+    requestAnimationFrame(positionIndicator);
+    window.addEventListener('resize', positionIndicator);
+    window.addEventListener('orientationchange', positionIndicator);
+
+    // Re-sync when view changes from the desktop select.
+    viewSelect?.addEventListener('change', () => {
+        const v = viewSelect.value;
+        const target = nav?.querySelector(`.bottom-nav-item[data-view="${v}"]`);
+        if (target) {
+            items.forEach(i => i.classList.remove('active'));
+            target.classList.add('active');
+            positionIndicator();
+        }
+    });
+}
+
+// --- SECONDARY FILTERS TOGGLE ---
+export function initFiltersToggle() {
+    const toggle = document.getElementById('toggleSecondaryFilters');
+    const panel = document.getElementById('normalFilters');
+    if (!toggle || !panel) return;
+    toggle.addEventListener('click', () => {
+        const expanded = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!expanded));
+        panel.dataset.collapsed = expanded ? 'true' : 'false';
     });
 }
 
@@ -101,8 +148,12 @@ export const closeReviewModal = () => {
 export function openProfileModal() {
     const currentUser = getCurrentUser();
     if (!currentUser) return;
-    showProfileMainView();
+    // Mostra skeleton subito, apri il modal, poi monta la vista reale al prossimo tick
+    // così l'utente vede una struttura coerente invece di un flash bianco.
+    const container = document.getElementById('profileDynamicContent');
+    if (container) renderProfileSkeleton(container);
     openModal('profileModal');
+    requestAnimationFrame(() => showProfileMainView());
 }
 
 function getCacheBustedUrl(url) {
@@ -121,56 +172,81 @@ function setProfileButtonAvatar(profilePic) {
     }
 }
 
+const PROFILE_ICONS = {
+    theme: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+    importExport: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    cache: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+    wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.121 2.121 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+    logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+    chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
+};
+
 export function showProfileMainView() {
     profileState = 'main';
     const container = document.getElementById('profileDynamicContent');
-    // Ripristina l'HTML della vista principale
     container.innerHTML = `
         <div id="profileMainView">
-            <div class="detail-section" style="margin-bottom:1.5rem;">
-                <h4>📷 Avatar & Name</h4>
-                <div style="display:flex; align-items:center; gap:16px;">
-                    <label for="profilePicInput" style="cursor:pointer; position:relative;">
-                        <img id="profilePicPreview" src="" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--accent); background:#1e293b;">
-                        <span style="position:absolute; bottom:0; right:0; background:var(--accent); color:white; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:0.7rem;">✎</span>
-                    </label>
-                    <input type="file" id="profilePicInput" accept="image/*" style="display:none;">
-                    <div style="flex:1;">
-                        <p id="profileNickname" style="font-weight:700; font-size:1.1rem; margin:0 0 4px 0;"></p>
-                        <p id="profileEmail" style="color:var(--text-muted); font-size:0.85rem; margin:0 0 6px 0;"></p>
-                        <button class="btn-primary" id="editNicknameBtn" style="padding:0.4rem 1rem; font-size:0.85rem;">✏️ Edit Nickname</button>
-                    </div>
+            <div class="profile-banner">
+                <label class="profile-avatar-wrap" for="profilePicInput" title="Change avatar">
+                    <img id="profilePicPreview" class="profile-avatar" src="" alt="Avatar">
+                    <span class="profile-avatar-edit" aria-hidden="true">${PROFILE_ICONS.pencil}</span>
+                </label>
+                <input type="file" id="profilePicInput" accept="image/*" style="display:none;">
+                <div class="profile-identity">
+                    <h3 class="profile-nickname">
+                        <span id="profileNickname"></span>
+                        <button class="profile-nickname-edit" id="editNicknameBtn" title="Edit nickname" aria-label="Edit nickname">${PROFILE_ICONS.pencil}</button>
+                    </h3>
+                    <p class="profile-email" id="profileEmail"></p>
                 </div>
             </div>
 
-            <div class="detail-section" style="margin-bottom:1.5rem;">
-                <h4>⚙️ Quick Actions</h4>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <button class="profile-btn" id="themeToggleProfile">🌙 Theme</button>
-                    <button class="profile-btn" id="openImportExportBtn">📁 Import / Export</button>
-                    <button class="profile-btn" id="clearCacheBtn">🗑️ Clear Cache</button>
-                    <button class="profile-btn" id="repairFromProfileBtn">🛠️ Repair Metadata</button>
-                </div>
+            <div class="profile-group">
+                <p class="profile-group-label">Preferences</p>
+                <button class="profile-row" id="themeToggleProfile" data-action="theme">
+                    <span class="profile-row-icon">${PROFILE_ICONS.theme}</span>
+                    <span class="profile-row-label">Theme</span>
+                    <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
+                </button>
+                <button class="profile-row" id="openImportExportBtn" data-action="import">
+                    <span class="profile-row-icon">${PROFILE_ICONS.importExport}</span>
+                    <span class="profile-row-label">Import / Export</span>
+                    <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
+                </button>
+                <button class="profile-row" id="repairFromProfileBtn" data-action="repair">
+                    <span class="profile-row-icon">${PROFILE_ICONS.wrench}</span>
+                    <span class="profile-row-label">Repair Metadata</span>
+                    <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
+                </button>
+                <button class="profile-row" id="clearCacheBtn" data-action="cache">
+                    <span class="profile-row-icon">${PROFILE_ICONS.cache}</span>
+                    <span class="profile-row-label">Clear Cache</span>
+                    <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
+                </button>
             </div>
 
-            <div class="detail-section" style="margin-bottom:1.5rem;">
-                <h4>🔐 Account</h4>
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <button class="profile-btn" id="logoutFromProfileBtn">🚪 Logout</button>
-                    <button class="profile-btn danger" id="deleteArchiveBtn">⚠️ Delete Entire Archive</button>
-                </div>
+            <div class="profile-group">
+                <p class="profile-group-label">Account</p>
+                <button class="profile-row" id="logoutFromProfileBtn" data-action="logout">
+                    <span class="profile-row-icon">${PROFILE_ICONS.logout}</span>
+                    <span class="profile-row-label">Logout</span>
+                    <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
+                </button>
+                <button class="profile-row danger" id="deleteArchiveBtn">
+                    <span class="profile-row-icon">${PROFILE_ICONS.alert}</span>
+                    <span class="profile-row-label">Delete Entire Archive</span>
+                    <span class="profile-row-chevron">${PROFILE_ICONS.chevron}</span>
+                </button>
             </div>
 
-            <p style="margin-top:0.5rem; font-size:0.75rem; color:var(--text-muted); text-align:center;">
-                Seba's Reviews v2.0 · Firebase + TMDB + OMDb
-            </p>
+            <p class="profile-footer">Seba's Reviews v2.0 · Firebase · TMDB · OMDb</p>
         </div>
     `;
 
-    // Ricollega i listener (perché l'HTML è stato rigenerato)
     attachProfileListeners();
 
-    // Carica dati personali
     const currentUser = getCurrentUser();
     const savedNick = localStorage.getItem('sebas-nickname');
     document.getElementById('profileNickname').innerText = savedNick || currentUser?.displayName || 'User';
@@ -183,27 +259,47 @@ export function showProfileMainView() {
 
 export function attachProfileListeners() {
     // Edit Nickname
-    document.getElementById('editNicknameBtn')?.addEventListener('click', async () => {
+    document.getElementById('editNicknameBtn')?.addEventListener('click', () => {
         const current = document.getElementById('profileNickname').innerText;
-        const newNick = prompt('Enter new nickname:', current);
-        if (newNick && newNick.trim() !== '') {
-            const trimmedNick = newNick.trim();
-            localStorage.setItem('sebas-nickname', trimmedNick);
-            document.getElementById('profileNickname').innerText = trimmedNick;
-            showToast('Saving nickname...', 2000);
+        const input = document.getElementById('nicknameInput');
+        if (input) input.value = current;
+        openModal('nicknameModal');
+    });
 
-            const currentUser = getCurrentUser();
-            if (currentUser) {
-                try {
-                    const userDocRef = doc(db, "users", currentUser.uid);
-                    await setDoc(userDocRef, { nickname: trimmedNick }, { merge: true });
-                    showToast('Nickname saved to Firestore!', 3000);
-                } catch (error) {
-                    console.error('Nickname save failed:', error);
-                    showToast('Failed to save nickname to Firestore.', 4000);
-                }
+    document.getElementById('nicknameCancelBtn')?.addEventListener('click', () => {
+        closeModal('nicknameModal');
+    });
+
+    document.querySelector('#nicknameModal .close-nickname')?.addEventListener('click', () => {
+        closeModal('nicknameModal');
+    });
+
+    document.getElementById('nicknameConfirmBtn')?.addEventListener('click', async () => {
+        const input = document.getElementById('nicknameInput');
+        const trimmedNick = input?.value?.trim();
+        if (!trimmedNick) return;
+
+        localStorage.setItem('sebas-nickname', trimmedNick);
+        document.getElementById('profileNickname').innerText = trimmedNick;
+        closeModal('nicknameModal');
+        showToast('Saving nickname...', 2000);
+
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            try {
+                const userDocRef = doc(db, "users", currentUser.uid);
+                await setDoc(userDocRef, { nickname: trimmedNick }, { merge: true });
+                showToast('Nickname saved!', 3000);
+            } catch (error) {
+                console.error('Nickname save failed:', error);
+                showToast('Failed to save nickname to Firestore.', 4000);
             }
         }
+    });
+
+    document.getElementById('nicknameInput')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('nicknameConfirmBtn')?.click();
+        if (e.key === 'Escape') closeModal('nicknameModal');
     });
 
     // Caricamento foto profilo con Firebase Storage e salvataggio URL su Firestore
@@ -334,74 +430,212 @@ export function showProfileConfirmPage(title, message, onConfirm) {
     });
 }
 
-// Avvia il repair con barra di progresso nel profilo
+// --- BATCHED REPAIR ENGINE -----------------------------------------------
+const REPAIR_BATCH_SIZE = 6;
+const REPAIR_BATCH_DELAY_MS = 80;        // micro-pause tra batch → evita 429
+let _repairCancelled = false;
+
+function normalizeIso3(iso2) {
+    if (typeof iso2 !== 'string') return null;
+    const up = iso2.trim().toUpperCase();
+    if (up.length === 3) return up;
+    return ISO2_TO_ISO3[up] || null;
+}
+
+/** Elabora un singolo film: search (se serve) → dettagli/credits → OMDb → save. */
+async function repairOneMovie(movie, currentUser) {
+    // Risolvi SEMPRE il tmdbId con il validator (imdbId → tmdbId validato →
+    // matcher stretto). Anche un record con tmdbId pre-esistente viene
+    // rivalidato: i record legacy potrebbero puntare al film sbagliato e il
+    // repair è proprio il punto giusto per correggerli.
+    const resolved = await resolveSavedMovieToTmdb(movie);
+    const tmdbId = resolved?.id || null;
+    if (!tmdbId) {
+        throw new Error('no-tmdb-match');
+    }
+
+    // 2. Dettagli + credits in parallelo (1 round-trip TMDB ciascuno)
+    const [detRes, credRes] = await Promise.all([
+        getMovieDetails(tmdbId, 'external_ids'),
+        getMovieCredits(tmdbId)
+    ]);
+
+    const director = credRes.crew?.find(p => p.job === 'Director')?.name || movie.director || 'Unknown';
+    const genres = detRes.genres?.map(g => g.name).join(', ') || movie.genres || '';
+    const runtime = detRes.runtime ? `${detRes.runtime} min` : (movie.runtime || 'N/A');
+    const year = detRes.release_date?.split('-')[0] || movie.year;
+    const cast = credRes.cast?.slice(0, 10).map(a => a.name) || movie.cast || [];
+
+    // 3. Production countries con codice ISO-3 attaccato (priorità formato ISO-3)
+    const rawCountries = Array.isArray(detRes.production_countries) ? detRes.production_countries : [];
+    const production_countries = rawCountries.map(c => ({
+        iso_3166_1: c.iso_3166_1 || null,
+        name: c.name || null,
+        iso_3: normalizeIso3(c.iso_3166_1)
+    }));
+
+    // 4. imdb_id da external_ids (sempre ottenibile, niente OMDb richiesto)
+    const imdb_id = detRes.external_ids?.imdb_id || detRes.imdb_id || null;
+
+    // 5. Fetch OMDb per voto IMDb (concorrenza gestita internamente dal queue)
+    let imdb_rating = null;
+    let imdb_votes = null;
+    if (imdb_id) {
+        try {
+            const imdbData = await fetchImdbRating({ imdbId: imdb_id });
+            if (imdbData?.rating) {
+                imdb_rating = imdbData.rating;
+                imdb_votes = imdbData.votes;
+            }
+        } catch (_) { /* silenzioso, non blocca il repair */ }
+    }
+
+    // 6. Save atomico
+    const updates = {
+        director, genres, runtime, year, cast,
+        tmdbId, imdb_id,
+        production_countries,
+        imdb_rating, imdb_votes
+    };
+    await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), updates);
+    window.updateMovieInCache?.(movie.id, updates);
+
+    return { imdbRecovered: !!imdb_rating };
+}
+
+// Avvia il repair con barra di progresso nel profilo (BATCHED)
 export async function startRepairWithProgress() {
     const currentUser = getCurrentUser();
     if (!currentUser) return;
+
+    _repairCancelled = false;
+
     const container = document.getElementById('profileDynamicContent');
     container.innerHTML = `
-        <div style="text-align:center;">
-            <h3 style="font-family:'Cinzel',serif; color:var(--accent); margin-bottom:1rem;">🛠️ Repairing Metadata</h3>
-            <p id="repairStatus" style="color:var(--text-muted); margin-bottom:1rem;">Starting…</p>
-            <div style="background:#000; border-radius:8px; overflow:hidden; margin-bottom:1rem;">
-                <div id="repairProgressBar" style="width:0%; height:6px; background:var(--accent); transition: width 0.2s;"></div>
+        <div class="repair-panel">
+            <h3 class="repair-title">🛠️ Repairing Metadata</h3>
+            <p class="repair-subtitle">Elaborazione parallela a batch da ${REPAIR_BATCH_SIZE} film.</p>
+
+            <div class="repair-progress-wrap">
+                <div class="repair-progress-bar"><div id="repairProgressBar" class="repair-progress-fill"></div></div>
+                <div class="repair-progress-meta">
+                    <span id="repairCounter">0 / 0</span>
+                    <span id="repairPercent">0%</span>
+                </div>
             </div>
-            <button class="btn-primary" style="background:#1e293b;" id="repairCancelBtn" disabled>Cancel</button>
+
+            <div class="repair-stats" id="repairStats">
+                <div class="repair-stat"><span class="repair-stat-label">Aggiornati</span><span class="repair-stat-value" id="repairUpdated">0</span></div>
+                <div class="repair-stat"><span class="repair-stat-label">IMDb voti</span><span class="repair-stat-value" id="repairImdb">0</span></div>
+                <div class="repair-stat"><span class="repair-stat-label">Errori</span><span class="repair-stat-value" id="repairFailed">0</span></div>
+            </div>
+
+            <p id="repairStatus" class="repair-status">In avvio…</p>
+
+            <div class="repair-actions">
+                <button class="repair-btn repair-btn-cancel" id="repairCancelBtn">Interrompi</button>
+                <button class="repair-btn repair-btn-back" id="repairBackBtn" hidden>Torna al profilo</button>
+            </div>
         </div>
     `;
 
-    const statusEl = document.getElementById('repairStatus');
     const barEl = document.getElementById('repairProgressBar');
+    const counterEl = document.getElementById('repairCounter');
+    const percentEl = document.getElementById('repairPercent');
+    const updatedEl = document.getElementById('repairUpdated');
+    const imdbEl = document.getElementById('repairImdb');
+    const failedEl = document.getElementById('repairFailed');
+    const statusEl = document.getElementById('repairStatus');
     const cancelBtn = document.getElementById('repairCancelBtn');
+    const backBtn = document.getElementById('repairBackBtn');
+
+    cancelBtn.addEventListener('click', () => {
+        _repairCancelled = true;
+        cancelBtn.disabled = true;
+        cancelBtn.innerText = 'Interruzione…';
+    });
+    backBtn.addEventListener('click', () => showProfileMainView());
 
     const movies = await fetchAllMovies();
-    const toRepair = movies.filter(m => !m.director || m.director === 'Unknown' || !m.genres || m.runtime === 'N/A' || !m.cast || m.cast.length === 0);
+    const toRepair = movies.filter(m =>
+        !m.director || m.director === 'Unknown' ||
+        !m.genres ||
+        m.runtime === 'N/A' ||
+        !m.cast || m.cast.length === 0 ||
+        !m.tmdbId ||
+        !m.imdb_id ||
+        !Array.isArray(m.production_countries) || m.production_countries.length === 0 ||
+        !m.imdb_rating
+    );
     const total = toRepair.length;
-    let completed = 0;
+
+    counterEl.textContent = `0 / ${total}`;
 
     if (total === 0) {
-        statusEl.innerText = 'All movies already up to date!';
+        statusEl.innerText = 'Tutti i film sono già aggiornati ✅';
         barEl.style.width = '100%';
-        cancelBtn.disabled = false;
-        cancelBtn.innerText = 'Back to Profile';
-        cancelBtn.addEventListener('click', () => showProfileMainView());
+        percentEl.textContent = '100%';
+        cancelBtn.hidden = true;
+        backBtn.hidden = false;
         return;
     }
 
-    for (const movie of toRepair) {
-        statusEl.innerText = `Repairing: ${movie.title} (${completed + 1} of ${total})`;
-        barEl.style.width = `${(completed / total) * 100}%`;
-        try {
-            const sData = await searchMoviesWithYear(movie.title, movie.year);
-            if (sData.results?.length) {
-                const tmdb = sData.results[0];
-                const [detRes, credRes] = await Promise.all([
-                    getMovieDetails(tmdb.id),
-                    getMovieCredits(tmdb.id)
-                ]);
-                const director = credRes.crew?.find(p => p.job === 'Director')?.name || 'Unknown';
-                const genres = detRes.genres?.map(g => g.name).join(', ') || '';
-                const runtime = detRes.runtime ? `${detRes.runtime} min` : 'N/A';
-                const year = detRes.release_date?.split('-')[0] || movie.year;
-                const cast = credRes.cast?.slice(0, 10).map(a => a.name) || [];
-                await updateDoc(doc(db, "users", currentUser.uid, "movies", movie.id), {
-                    director, genres, runtime, year, cast
-                });
-                window.updateMovieInCache?.(movie.id, { director, genres, runtime, year, cast });
+    const stats = { processed: 0, updated: 0, failed: 0, imdbRecovered: 0 };
+    const startTime = Date.now();
+
+    // Process in batch da N concorrenti
+    for (let i = 0; i < toRepair.length; i += REPAIR_BATCH_SIZE) {
+        if (_repairCancelled) break;
+        const batch = toRepair.slice(i, i + REPAIR_BATCH_SIZE);
+
+        statusEl.innerText = `Batch ${Math.floor(i / REPAIR_BATCH_SIZE) + 1}: ${batch.map(b => b.title).slice(0, 2).join(', ')}${batch.length > 2 ? ` +${batch.length - 2}` : ''}`;
+
+        await Promise.all(batch.map(async (movie) => {
+            try {
+                const result = await repairOneMovie(movie, currentUser);
+                stats.updated++;
+                if (result.imdbRecovered) stats.imdbRecovered++;
+            } catch (err) {
+                stats.failed++;
+                if (err?.message !== 'no-tmdb-match') {
+                    console.warn(`[Repair] ${movie.title}:`, err);
+                }
+            } finally {
+                stats.processed++;
+                const pct = (stats.processed / total) * 100;
+                barEl.style.width = `${pct}%`;
+                counterEl.textContent = `${stats.processed} / ${total}`;
+                percentEl.textContent = `${pct.toFixed(0)}%`;
+                updatedEl.textContent = stats.updated;
+                imdbEl.textContent = stats.imdbRecovered;
+                failedEl.textContent = stats.failed;
             }
-        } catch (err) {
-            console.error(`Error repairing ${movie.title}:`, err);
+        }));
+
+        // Micro-pausa fra batch (rate-limit safety)
+        if (i + REPAIR_BATCH_SIZE < toRepair.length && !_repairCancelled) {
+            await new Promise(r => setTimeout(r, REPAIR_BATCH_DELAY_MS));
         }
-        completed++;
-        await new Promise(r => setTimeout(r, 250));
     }
+
+    // ===== POST-REPAIR =====
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     barEl.style.width = '100%';
-    statusEl.innerText = `Repair completed: ${total} movies updated.`;
-    cancelBtn.disabled = false;
-    cancelBtn.innerText = 'Back to Profile';
-    cancelBtn.addEventListener('click', () => showProfileMainView());
-    showToast('Metadata repaired!');
-    renderGallery();
+    percentEl.textContent = '100%';
+
+    // Trigger silenzioso: invalidate + refetch cache, ri-render galleria
+    window.invalidateMoviesCache?.();
+    try { await fetchAllMovies(); } catch (_) {}
+    try { renderGallery(); } catch (_) {}
+
+    statusEl.innerHTML = _repairCancelled
+        ? `⛔ Interrotto dopo ${stats.processed} film.`
+        : `✅ <strong>Database sincronizzato</strong>: ${stats.updated} film aggiornati, ${stats.imdbRecovered} voti IMDb recuperati${stats.failed ? `, ${stats.failed} errori` : ''} <span class="repair-elapsed">· ${elapsed}s</span>`;
+
+    cancelBtn.hidden = true;
+    backBtn.hidden = false;
+
+    showToast(_repairCancelled ? 'Riparazione interrotta' : `Riparazione completata — ${stats.updated} film aggiornati`);
 }
 
 // --- MODAL EVENT LISTENERS ---
@@ -429,10 +663,16 @@ window.addEventListener('click', (event) => {
     if (event.target == reviewModal) closeModal('reviewModal');
 });
 
-// Stats modal
-document.querySelector('.close-stats').addEventListener('click', () => closeModal('statsModal'));
+// Stats modal — cleanup delle chart instances alla chiusura
+document.querySelector('.close-stats').addEventListener('click', () => {
+    cleanupStats();
+    closeModal('statsModal');
+});
 window.addEventListener('click', (event) => {
-    if (event.target == statsModal) closeModal('statsModal');
+    if (event.target == statsModal) {
+        cleanupStats();
+        closeModal('statsModal');
+    }
 });
 
 // Trailer modal
@@ -461,11 +701,14 @@ window.addEventListener('click', (event) => {
 });
 
 // Directors ranking modal
-document.getElementById('openDirectorsRankingBtn').addEventListener('click', () => {
-    openModal('directorsRankingModal');
-    buildDirectorsRanking();
-});
-document.querySelector('.close-ranking').addEventListener('click', () => {
+const openDirectorsRankingBtn = document.getElementById('openDirectorsRankingBtn');
+if (openDirectorsRankingBtn) {
+    openDirectorsRankingBtn.addEventListener('click', () => {
+        openModal('directorsRankingModal');
+        buildDirectorsRanking();
+    });
+}
+document.querySelector('.close-ranking')?.addEventListener('click', () => {
     closeModal('directorsRankingModal');
 });
 window.addEventListener('click', (event) => {
@@ -476,11 +719,14 @@ window.addEventListener('click', (event) => {
 });
 
 // Actors ranking modal
-document.getElementById('openActorsRankingBtn')?.addEventListener('click', () => {
-    openModal('actorsRankingModal');
-    buildActorsRanking();
-});
-document.querySelector('.close-actors-ranking').addEventListener('click', () => {
+const openActorsRankingBtn = document.getElementById('openActorsRankingBtn');
+if (openActorsRankingBtn) {
+    openActorsRankingBtn.addEventListener('click', () => {
+        openModal('actorsRankingModal');
+        buildActorsRanking();
+    });
+}
+document.querySelector('.close-actors-ranking')?.addEventListener('click', () => {
     closeModal('actorsRankingModal');
 });
 window.addEventListener('click', (event) => {
@@ -489,11 +735,14 @@ window.addEventListener('click', (event) => {
 });
 
 // Genre chart modal
-document.getElementById('openGenreChartBtn').addEventListener('click', () => {
-    openModal('genreChartModal');
-    buildGenreChart();
-});
-document.querySelector('.close-genre-chart').addEventListener('click', () => {
+const openGenreChartBtn = document.getElementById('openGenreChartBtn');
+if (openGenreChartBtn) {
+    openGenreChartBtn.addEventListener('click', () => {
+        openModal('genreChartModal');
+        buildGenreChart();
+    });
+}
+document.querySelector('.close-genre-chart')?.addEventListener('click', () => {
     closeModal('genreChartModal');
 });
 window.addEventListener('click', (event) => {
@@ -524,28 +773,51 @@ window.addEventListener('click', (event) => {
 });
 
 // Stats button
-document.getElementById('statsBtn').onclick = () => { updateAdvancedStats(); openModal('statsModal'); };
+const statsBtn = document.getElementById('statsBtn');
+if (statsBtn) {
+    statsBtn.addEventListener('click', () => { showVaultSkeleton(); openModal('statsModal'); updateAdvancedStats(); });
+}
 
 // Trailer button
-document.getElementById('trailerBtn')?.addEventListener('click', async ()=>{
-    const currentUser = getCurrentUser();
-    const currentMovieId = getCurrentMovieId();
-    if (!currentUser || !currentMovieId) return;
-    const snap = await getDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
-    const m = snap.data();
-    const movieResult = await getFirstMovieByTitleYear(m.title, m.year);
-    if(movieResult){
-        const vData = await getMovieVideos(movieResult.id);
-        const t = vData.results.find(v=>v.type==='Trailer' && v.site==='YouTube');
-        if(t) {
-            document.getElementById('trailerIframe').src = `https://www.youtube.com/embed/${t.key}`;
-            openModal('trailerModal');
+const trailerBtn = document.getElementById('trailerBtn');
+if (trailerBtn) {
+    trailerBtn.addEventListener('click', async () => {
+        try {
+            const currentUser = getCurrentUser();
+            const currentMovieId = getCurrentMovieId();
+            if (!currentUser || !currentMovieId) {
+                showToast('Devi essere autenticato e avere un film selezionato per vedere il trailer.', 4000);
+                return;
+            }
+            const snap = await getDoc(doc(db, "users", currentUser.uid, "movies", currentMovieId));
+            const m = snap.data();
+            // Validatore: imdbId autoritativo → tmdbId validato (non si fida
+            // ciecamente di id legacy) → matcher stretto. Nessun fallback
+            // al primo risultato di ricerca.
+            const movieResult = await resolveSavedMovieToTmdb(m);
+            if (movieResult?.id) {
+                const vData = await getMovieVideos(movieResult.id);
+                const t = vData.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+                if (t) {
+                    document.getElementById('trailerIframe').src = `https://www.youtube.com/embed/${t.key}`;
+                    openModal('trailerModal');
+                } else {
+                    showToast('Trailer non trovato per questo film.', 4000);
+                }
+            } else {
+                showToast('Film non trovato su TMDB.', 4000);
+            }
+        } catch (err) {
+            console.error('Trailer error:', err);
+            showToast(`Errore trailer: ${err.message || 'Controlla la connessione'}`, 5000);
         }
-    }
-});
+    });
+}
 
 // Export functionality
-document.getElementById('exportDataBtn2')?.addEventListener('click', async () => {
+const exportDataBtn2 = document.getElementById('exportDataBtn2');
+if (exportDataBtn2) {
+    exportDataBtn2.addEventListener('click', async () => {
     const currentUser = getCurrentUser();
     if (!currentUser) return alert("You must be logged in to export data.");
 
@@ -637,13 +909,14 @@ document.getElementById('importDataBtn2')?.addEventListener('change', async (e) 
 
     // Read the file as text to trigger the onload function above
     reader.readAsText(file);
-});
+    });
+}
 
 // --- DEPENDENCIES FROM OTHER MODULES ---
 // Queste funzioni e oggetti vengono "iniettati" da app.js per far funzionare i bottoni.
 
 // Variabili globali che verranno riempite dalla funzione setUIDependencies
-let showToast; 
+// (showToast NON è qui: è importato staticamente da utils.js in cima al file)
 let getCurrentUser, getCurrentMovieId, setCurrentMovieId, getCurrentSelectedMovieExtras, setCurrentSelectedMovieExtras;
 let toBase64, searchMoviesWithYear, getMovieDetails, getMovieCredits, getMovieVideos, getFirstMovieByTitleYear;
 let signOut, collection, getDocs, deleteDoc, updateDoc, addDoc, doc, getDoc, setDoc, onSnapshot;
@@ -651,7 +924,6 @@ let fetchAllMovies, renderGallery;
 
 export function setUIDependencies(deps) {
     ({
-        showToast,
         toBase64,
         searchMoviesWithYear,
         getMovieDetails,

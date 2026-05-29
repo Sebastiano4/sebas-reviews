@@ -6,6 +6,27 @@
  * Sono funzioni "tuttofare" che usiamo un po' dappertutto.
  */
 
+/**
+ * Escape HTML special characters per evitare XSS quando si interpola
+ * testo proveniente da TMDB / Firestore in template literal HTML.
+ * Usare SEMPRE su titoli, trame, nomi, generi, anno, runtime, ecc.
+ */
+export function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/**
+ * Escape per valori usati come attributi (es. src, alt, title, value).
+ * Identico a escapeHtml ma esposto separatamente per chiarezza semantica.
+ */
+export const escapeAttr = escapeHtml;
+
 export function showSkeletonLoaders(count = 10) {
     const gallery = document.getElementById('gallery');
     let skeletonsHTML = '';
@@ -30,6 +51,168 @@ export function showSkeletonLoaders(count = 10) {
 export function removeSkeletonLoaders() {
     const skeletons = document.querySelectorAll('.skeleton-card');
     skeletons.forEach(s => s.remove());
+}
+
+/**
+ * Skeleton row per la classifica ELO — riproduce la geometria di .elo-movie-row
+ * (rank badge + poster + titolo + meta) per evitare layout shift quando i dati arrivano.
+ */
+export function renderEloSkeleton(container, count = 8) {
+    if (!container) return;
+    const rows = [];
+    for (let i = 0; i < count; i++) {
+        const isCompact = i > 2;
+        rows.push(`
+            <div class="elo-skeleton-row ${isCompact ? 'compact' : ''}" aria-hidden="true">
+                <div class="elo-skeleton-rank skeleton-pulse"></div>
+                <div class="elo-skeleton-poster skeleton-pulse"></div>
+                <div class="elo-skeleton-content">
+                    <div class="elo-skeleton-line skeleton-pulse" style="width: 70%;"></div>
+                    <div class="elo-skeleton-line skeleton-pulse" style="width: 40%; height: 10px;"></div>
+                    <div class="elo-skeleton-chips">
+                        <div class="elo-skeleton-chip skeleton-pulse"></div>
+                        <div class="elo-skeleton-chip skeleton-pulse"></div>
+                        <div class="elo-skeleton-chip skeleton-pulse" style="width: 80px;"></div>
+                    </div>
+                </div>
+            </div>
+        `);
+    }
+    container.innerHTML = rows.join('');
+}
+
+/**
+ * Skeleton per il modale Profilo — avatar + nome + email + griglia di pulsanti.
+ */
+export function renderProfileSkeleton(container) {
+    if (!container) return;
+    container.innerHTML = `
+        <div class="profile-skeleton" aria-hidden="true">
+            <div class="profile-skeleton-header">
+                <div class="profile-skeleton-avatar skeleton-pulse"></div>
+                <div class="profile-skeleton-text">
+                    <div class="profile-skeleton-line skeleton-pulse" style="width: 60%;"></div>
+                    <div class="profile-skeleton-line skeleton-pulse" style="width: 80%; height: 10px;"></div>
+                    <div class="profile-skeleton-line skeleton-pulse" style="width: 50%; height: 26px; margin-top: 8px;"></div>
+                </div>
+            </div>
+            <div class="profile-skeleton-section">
+                <div class="profile-skeleton-line skeleton-pulse" style="width: 40%; height: 14px; margin-bottom: 12px;"></div>
+                <div class="profile-skeleton-grid">
+                    <div class="profile-skeleton-button skeleton-pulse"></div>
+                    <div class="profile-skeleton-button skeleton-pulse"></div>
+                    <div class="profile-skeleton-button skeleton-pulse"></div>
+                    <div class="profile-skeleton-button skeleton-pulse"></div>
+                </div>
+            </div>
+            <div class="profile-skeleton-section">
+                <div class="profile-skeleton-line skeleton-pulse" style="width: 30%; height: 14px; margin-bottom: 12px;"></div>
+                <div class="profile-skeleton-button skeleton-pulse" style="width: 100%; height: 42px; margin-bottom: 8px;"></div>
+                <div class="profile-skeleton-button skeleton-pulse" style="width: 100%; height: 42px;"></div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Skeleton per la sezione Vault Stats (statistiche e mappa).
+ */
+export function renderVaultStatsSkeleton(container) {
+    if (!container) return;
+    container.innerHTML = `
+        <div class="vault-skeleton" aria-hidden="true">
+            <div class="vault-skeleton-grid">
+                ${Array.from({ length: 6 }).map(() => `
+                    <div class="vault-skeleton-card">
+                        <div class="vault-skeleton-line skeleton-pulse" style="width: 50%; height: 28px;"></div>
+                        <div class="vault-skeleton-line skeleton-pulse" style="width: 70%; height: 10px; margin-top: 10px;"></div>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="vault-skeleton-section">
+                <div class="vault-skeleton-line skeleton-pulse" style="width: 35%; height: 16px; margin-bottom: 12px;"></div>
+                <div class="vault-skeleton-line skeleton-pulse" style="width: 100%; height: 60px;"></div>
+            </div>
+            <div class="vault-skeleton-section">
+                <div class="vault-skeleton-line skeleton-pulse" style="width: 35%; height: 16px; margin-bottom: 12px;"></div>
+                <div class="vault-skeleton-line skeleton-pulse" style="width: 100%; height: 60px;"></div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Modale di conferma in-app: sostituisce confirm() nativo con un'UI coerente
+ * con il resto dell'app (stile vote modal). Ritorna una Promise<boolean>.
+ *
+ *   const ok = await askConfirm({
+ *     title: 'Elimina film?',
+ *     message: 'L\'azione non può essere annullata.',
+ *     confirmText: 'Elimina',
+ *     cancelText: 'Annulla',
+ *     danger: true,
+ *     icon: '🗑️',
+ *   });
+ *
+ * NOTA: import dinamico di modal-manager per evitare cicli con utils.js.
+ */
+export function askConfirm({
+    title = 'Sei sicuro?',
+    message = '',
+    confirmText = 'Conferma',
+    cancelText = 'Annulla',
+    danger = false,
+    icon = '⚠️',
+} = {}) {
+    return new Promise(resolve => {
+        const modal = document.getElementById('confirmModal');
+        const content = modal?.querySelector('.confirm-modal-content');
+        const titleEl = document.getElementById('confirmTitle');
+        const msgEl = document.getElementById('confirmMessage');
+        const iconEl = document.getElementById('confirmIcon');
+        const okBtn = document.getElementById('confirmOkBtn');
+        const cancelBtn = document.getElementById('confirmCancelBtn');
+
+        if (!modal || !content || !okBtn || !cancelBtn) {
+            // Fallback se il markup non c'è (test/edge-case): usa confirm() nativo.
+            resolve(window.confirm(`${title}\n\n${message}`));
+            return;
+        }
+
+        titleEl.textContent = title;
+        msgEl.textContent = message;
+        msgEl.style.display = message ? '' : 'none';
+        iconEl.textContent = icon;
+        iconEl.style.display = icon ? '' : 'none';
+        okBtn.textContent = confirmText;
+        cancelBtn.textContent = cancelText;
+        content.classList.toggle('danger', !!danger);
+
+        import('./modal-manager.js').then(({ openModal, closeModal }) => {
+            const cleanup = () => {
+                okBtn.removeEventListener('click', onOk);
+                cancelBtn.removeEventListener('click', onCancel);
+                modal.removeEventListener('click', onBackdrop);
+                document.removeEventListener('keydown', onKey);
+                closeModal('confirmModal');
+            };
+            const onOk = () => { cleanup(); resolve(true); };
+            const onCancel = () => { cleanup(); resolve(false); };
+            const onBackdrop = (e) => { if (e.target === modal) onCancel(); };
+            const onKey = (e) => {
+                if (e.key === 'Escape') onCancel();
+                else if (e.key === 'Enter') onOk();
+            };
+
+            okBtn.addEventListener('click', onOk);
+            cancelBtn.addEventListener('click', onCancel);
+            modal.addEventListener('click', onBackdrop);
+            document.addEventListener('keydown', onKey);
+
+            openModal('confirmModal');
+            setTimeout(() => okBtn.focus(), 50);
+        });
+    });
 }
 
 export function showToast(message, duration = 2000) {

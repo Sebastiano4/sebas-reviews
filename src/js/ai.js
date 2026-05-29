@@ -4,9 +4,9 @@
  * La chiave API è protetta nel backend - non viene mai esposta al browser.
  */
 
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-functions.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-functions.js";
+import { functions } from './firebase.js';
 
-const functions = getFunctions();
 const analyzeReviewFn = httpsCallable(functions, 'analyzeReview');
 
 /**

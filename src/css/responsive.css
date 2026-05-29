@@ -1,0 +1,584 @@
+/* =========================================
+   RESPONSIVE — Media queries mobile (max-width: 768px)
+   ========================================= */
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+
+    /* --- BASE --- */
+    body {
+        font-size: 16px;
+        line-height: 1.7;
+    }
+
+    /* --- LAYOUT --- */
+    .navbar { padding: 1rem; }
+
+    .nav-actions,
+    .advanced-filters,
+    .decade-filters {
+        gap: 10px;
+        padding: 12px 5%;
+    }
+
+    .nav-actions .btn-primary { padding: 12px 18px; }
+
+    .filter-select,
+    .decade-btn,
+    #mainSearch,
+    .btn-primary {
+        padding: 10px 14px;
+        font-size: 0.9rem;
+    }
+
+    #mainSearch {
+        min-width: 200px;
+        width: 100%;
+    }
+
+    /* --- CARDS --- */
+    .movie-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 12px;
+    }
+
+    .movie-card { margin-bottom: 20px; }
+
+    .card-info { padding: 14px; }
+
+    .card-info h3 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        letter-spacing: -0.2px;
+        color: #ffffff;
+        margin-bottom: 4px;
+    }
+
+    .card-info .quick-tools span {
+        font-size: 0.9rem;
+        font-weight: bold;
+        color: #ff6b6b;
+    }
+
+    .quick-tools .vote-btn {
+        font-size: 0.75rem;
+        font-weight: bold;
+        background: #3b4455;
+        padding: 6px 12px;
+        border-radius: 6px;
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .poster-container img {
+        max-height: 200px;
+        object-fit: cover;
+    }
+
+    /* --- TESTO --- */
+    .plot-text,
+    .movie-metadata {
+        color: #d1d5db;
+        font-size: 0.95rem;
+    }
+
+    /* --- SPOTLIGHT --- */
+    .spotlight-content h1 { font-size: 2rem; }
+    .spotlight-content p  { font-size: 1rem; }
+
+    /* --- TOAST --- */
+    .toast-notification {
+        font-size: 0.95rem;
+        padding: 14px 20px;
+    }
+
+    /* --- BOTTOM NAV --- */
+    .bottom-nav { display: flex; }
+
+    #app-content { padding-bottom: 80px; }
+
+    /* --- MODALI A SCHERMO INTERO --- */
+    .modal-content {
+        margin: 0;
+        border-radius: 24px 24px 0 0;
+        max-width: 100%;
+        width: 100%;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        max-height: 95vh;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        animation: slideUp 0.3s ease-out;
+        /* Spazio per home-indicator + safe area su iPhone notched */
+        padding-bottom: max(2rem, env(safe-area-inset-bottom, 0));
+    }
+
+    /* Vault: stesso pattern slide-up degli altri modali per coerenza visiva.
+       Prima usava un overlay centrato (border-radius 24px su tutti i lati,
+       position relative) — fuori carattere rispetto al resto dell'app. */
+    #statsModal .modal-content {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        border-radius: 20px 20px 0 0;
+        max-height: 94vh;
+        overflow-y: auto;
+        animation: slideUp 0.3s ease-out;
+    }
+
+    /* --- VAULT MAP --- */
+    #vaultMapView {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        width: 100%;
+    }
+
+    #vaultMapContainer {
+        width: 100%;
+        min-height: 56vh;
+        height: 56vh;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #0f172a;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+    }
+
+    .vault-map-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    #vaultMapSummary {
+        color: #e2e8f0;
+        font-size: 0.95rem;
+        margin-top: 0.3rem;
+    }
+
+    #vaultMapCountryInfo {
+        background: rgba(15,23,42,0.95);
+        border-radius: 16px;
+        padding: 1rem;
+        color: #e2e8f0;
+        max-height: 220px;
+        overflow-y: auto;
+        border: 1px solid rgba(148,163,184,0.12);
+    }
+
+    /* --- AI CHAT (sopra la bottom nav) --- */
+    #ai-chatbot {
+        bottom: 70px;
+        z-index: 1600;
+    }
+
+    #chat-window {
+        bottom: 70px;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    #toggle-chat { z-index: 1601; }
+
+    /* --- ELO RANKING su mobile — card fluide stile app moderna --- */
+    #eloRankingContainer {
+        max-height: 70vh;
+        gap: 0.85rem;
+        padding: 0 2px 4px;
+    }
+
+    .elo-movie-row {
+        display: grid;
+        grid-template-columns: auto 78px 1fr;
+        align-items: center;
+        gap: 0.9rem;
+        padding: 0.9rem;
+        border-radius: 18px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+        border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .elo-movie-row.top-three {
+        background: linear-gradient(135deg, rgba(251,191,36,0.10), rgba(255,255,255,0.03));
+        border-color: rgba(251,191,36,0.25);
+    }
+
+    .elo-movie-row.compact {
+        /* Stessa griglia dei top-three: il poster ha la stessa dimensione,
+           cambiano solo medal vs numero nel rank badge. */
+        grid-template-columns: auto 78px 1fr;
+        gap: 0.75rem;
+        padding: 0.75rem;
+    }
+
+    /* Tap feedback nativo */
+    .elo-movie-row:active {
+        transform: scale(0.985);
+        background: linear-gradient(135deg, rgba(255,255,255,0.09), rgba(255,255,255,0.04));
+    }
+
+    .elo-rank-badge {
+        min-width: 42px;
+        font-size: 1.25rem;
+        font-weight: 800;
+        line-height: 1;
+        align-self: center;
+    }
+
+    .elo-movie-row.compact .elo-rank-badge {
+        min-width: 36px;
+        font-size: 1rem;
+    }
+
+    .elo-poster {
+        width: 78px;
+        height: 117px;
+        border-radius: 12px;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+    }
+
+    /* Poster: stessa dimensione anche per le righe compact. */
+
+    .elo-row-content {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        min-width: 0;
+    }
+
+    .elo-row-header {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+
+    .elo-title {
+        font-size: 1rem;
+        line-height: 1.25;
+        font-weight: 700;
+        white-space: normal;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        margin: 0;
+    }
+
+    .elo-movie-row.compact .elo-title {
+        font-size: 0.92rem;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+    }
+
+    .elo-score {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--accent);
+        opacity: 0.9;
+    }
+
+    .elo-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        font-size: 0.78rem;
+        margin-top: 2px;
+    }
+
+    .elo-meta-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.06);
+        color: var(--text-muted);
+        font-weight: 600;
+        line-height: 1.3;
+    }
+
+    .elo-meta-rating { color: #fbbf24; }
+
+    .elo-tier-badge {
+        font-size: 0.7rem;
+        padding: 3px 9px;
+        letter-spacing: 0.02em;
+    }
+
+    /* --- Controlli classifica mobile (header compatto su richiesta utente) --- */
+    .elo-controls {
+        flex-direction: column;
+        gap: 0.45rem;
+        align-items: stretch;
+        margin-bottom: 0.55rem !important;
+    }
+
+    .elo-range-controls {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 0.4rem;
+        width: 100%;
+    }
+
+    .elo-range-label {
+        font-size: 0.7rem;
+        gap: 0.2rem;
+    }
+
+    .elo-range-input {
+        min-width: 0;
+        flex: 1;
+        padding: 0.45rem 0.7rem;
+        font-size: 0.85rem;
+    }
+
+    .elo-search-bar {
+        max-width: 100%;
+        padding: 0.55rem 0.85rem;
+        font-size: 0.9rem;
+    }
+
+    #eloSearchInfo {
+        font-size: 0.72rem !important;
+        margin: 0.2rem 0 0 !important;
+    }
+
+    .elo-jump-link {
+        padding: 0.45rem 0.85rem;
+        font-size: 0.8rem;
+        min-width: 0;
+        flex: 1;
+    }
+
+    #eloRankingModal .modal-content {
+        padding: 0.9rem 1rem 1rem;
+    }
+
+    #eloRankingModal h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.45rem;
+        letter-spacing: 0.02em;
+    }
+
+    /* Sottotitolo descrittivo: occupa troppo spazio in mobile, nascosto.
+       La lista parla da sola. Selettore con > per non colpire #eloSearchInfo
+       (anch'esso un <p>, ma annidato dentro .elo-controls). */
+    #eloRankingModal > .modal-content > p {
+        display: none;
+    }
+
+    #eloRankingContainer {
+        margin-top: 0.3rem;
+    }
+
+    /* Smooth fade-in delle card quando la classifica si popola */
+    .elo-movie-row {
+        animation: eloRowIn 0.35s ease-out both;
+    }
+
+    @keyframes eloRowIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- BATTLE MODAL su mobile --- */
+    .battle-content {
+        padding: 8px;
+        height: 100vh;
+        max-height: 90vh;
+    }
+
+    #battleModal .modal-content {
+        max-height: 90vh;
+        height: 100%;
+        padding: 8px;
+    }
+
+    #battleModal .modal-content > h2 {
+        font-size: 1rem;
+        margin-bottom: 0.2rem;
+        padding: 0.2rem;
+        line-height: 1.1;
+    }
+
+    #battleModal .modal-content > p { display: none; }
+
+    #battleModal { padding: 4px; }
+
+    .battle-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 0;
+        margin-bottom: 0;
+    }
+
+    .battle-side {
+        width: 94%;
+        display: flex;
+        flex-direction: column;
+        flex-grow: 0;
+        min-width: 0;
+        min-height: fit-content;
+        gap: 0;
+        margin: 0 auto;
+        justify-content: flex-start;
+    }
+
+    .battle-movie {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        min-height: fit-content;
+        min-width: 0;
+        border: none;
+        overflow: visible;
+        justify-content: flex-start;
+        position: relative;
+    }
+
+    .battle-movie-container {
+        width: 100%;
+        height: 25vh;
+        min-height: 25vh;
+        max-height: 25vh;
+        border: none;
+        overflow: visible;
+        border-radius: 8px;
+        margin: 0;
+        padding: 0;
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .battle-movie img.battle-poster {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 20%;
+        display: block;
+        border-radius: 8px;
+    }
+
+    .battle-info {
+        display: flex;
+        flex-direction: column;
+        visibility: visible;
+        opacity: 1;
+        height: auto;
+        padding: 8px 4px 0 4px;
+        align-items: center;
+        z-index: 10;
+        flex-shrink: 0;
+        color: var(--text-main);
+    }
+
+    .battle-info h3 {
+        font-size: 0.85rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: center;
+        margin: 0 0 4px 0;
+        line-height: 1.1;
+        width: 100%;
+        color: var(--text-main);
+        display: none;
+    }
+
+    .battle-info-footer {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        width: 100%;
+        padding: 4px 12px;
+        visibility: visible;
+        opacity: 1;
+        z-index: 50;
+        font-size: 0.9rem;
+        background: transparent;
+        align-items: center;
+        gap: 0px;
+    }
+
+    .battle-rating {
+        font-size: 0.8rem;
+        margin: 0;
+        flex-shrink: 0;
+        text-align: center;
+        color: white;
+    }
+
+    .battle-elo {
+        font-size: 0.75rem;
+        margin: 0;
+        flex-shrink: 0;
+        text-align: center;
+        color: white;
+    }
+
+    .battle-divider {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-shrink: 0;
+        width: auto;
+        height: auto;
+        margin: 0;
+        padding: 0;
+    }
+
+    .battle-divider::before,
+    .battle-divider::after {
+        display: none;
+        width: 0;
+        height: 0;
+        margin: 0;
+        padding: 0;
+    }
+
+    .battle-divider-text {
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin: 0;
+        padding: 0;
+        align-self: center;
+        flex-shrink: 0;
+        color: var(--accent);
+    }
+
+    /* Floating animations for Elo changes (+/-) */
+    .elo-change,
+    .score-popup,
+    .floating-points,
+    .battle-points-animation {
+        z-index: 9999;
+        position: absolute;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        pointer-events: none;
+    }
+
+    /* Battle result popup visibile su mobile */
+    .battle-result-container,
+    .battle-result-popup {
+        z-index: 9998;
+        position: relative;
+    }
+}

@@ -17,7 +17,7 @@ import {
     doc,
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { openModal, closeModal } from './modal-manager.js';
-import { showToast } from './utils.js';   // Mantenuto per eventuali altri usi, ma non chiamato in battle
+import { showToast, escapeHtml, escapeAttr } from './utils.js';   // Mantenuto per eventuali altri usi, ma non chiamato in battle
 
 // === COSTANTI ===
 const INITIAL_ELO = 1200;
@@ -507,12 +507,12 @@ function displayBattleModal() {
             ? currentBattleMovieA.eloRating.toFixed(1) : '1200.0';
         movieACard.innerHTML = `
             <div class="battle-movie-container">
-                <img src="${currentBattleMovieA.poster}" alt="${currentBattleMovieA.title}" class="battle-poster">
+                <img src="${escapeAttr(currentBattleMovieA.poster)}" alt="${escapeAttr(currentBattleMovieA.title)}" class="battle-poster">
                 <div class="battle-info">
-                    <h3>${currentBattleMovieA.title}</h3>
+                    <h3>${escapeHtml(currentBattleMovieA.title)}</h3>
                     <div class="battle-info-footer">
-                        <p class="battle-rating">⭐ ${currentBattleMovieA.rating}/10</p>
-                        <p id="battleMovieAElo" class="battle-elo">Elo: ${eloValueA}</p>
+                        <p class="battle-rating">⭐ ${escapeHtml(currentBattleMovieA.rating)}/10</p>
+                        <p id="battleMovieAElo" class="battle-elo">Elo: ${escapeHtml(eloValueA)}</p>
                     </div>
                 </div>
             </div>
@@ -526,12 +526,12 @@ function displayBattleModal() {
             ? currentBattleMovieB.eloRating.toFixed(1) : '1200.0';
         movieBCard.innerHTML = `
             <div class="battle-movie-container">
-                <img src="${currentBattleMovieB.poster}" alt="${currentBattleMovieB.title}" class="battle-poster">
+                <img src="${escapeAttr(currentBattleMovieB.poster)}" alt="${escapeAttr(currentBattleMovieB.title)}" class="battle-poster">
                 <div class="battle-info">
-                    <h3>${currentBattleMovieB.title}</h3>
+                    <h3>${escapeHtml(currentBattleMovieB.title)}</h3>
                     <div class="battle-info-footer">
-                        <p class="battle-rating">⭐ ${currentBattleMovieB.rating}/10</p>
-                        <p id="battleMovieBElo" class="battle-elo">Elo: ${eloValueB}</p>
+                        <p class="battle-rating">⭐ ${escapeHtml(currentBattleMovieB.rating)}/10</p>
+                        <p id="battleMovieBElo" class="battle-elo">Elo: ${escapeHtml(eloValueB)}</p>
                     </div>
                 </div>
             </div>

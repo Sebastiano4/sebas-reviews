@@ -1,0 +1,112 @@
+{
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\cors.json": {
+    "mtime": 1778536943.1598773,
+    "ast_hash": "458ed13a3f65aa3853bbacfd16425d94",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\firebase.json": {
+    "mtime": 1778572982.533902,
+    "ast_hash": "e2a4a751c5d74a949eeced3759f447e7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\manifest.json": {
+    "mtime": 1778673534.1369946,
+    "ast_hash": "f0a0e99b03c5131882ff4b8582e776cd",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\sw.js": {
+    "mtime": 1778673541.1836483,
+    "ast_hash": "c6214e969be5c96a612e0db73c2601f2",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\functions\\index.js": {
+    "mtime": 1778831694.5424147,
+    "ast_hash": "c73c1934db487dd326ca95456b443131",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\functions\\package.json": {
+    "mtime": 1778572982.530482,
+    "ast_hash": "e5314ccb07a6bb680b18d7e75908eb28",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\scripts\\auto-sync.ps1": {
+    "mtime": 1778673567.4661055,
+    "ast_hash": "3c8a5d404fa00958af5800eba6420e77",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\src\\js\\ai.js": {
+    "mtime": 1778686550.5612264,
+    "ast_hash": "b526bcb7a8b703d5a09ec87e30bb40e1",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\src\\js\\app.js": {
+    "mtime": 1778834142.7305658,
+    "ast_hash": "d8434521a6f9ad2d7048ff7b4cb65d8f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\src\\js\\custom-select.js": {
+    "mtime": 1778705273.438545,
+    "ast_hash": "bfe689ffc4c35b8921622dacb9b43d37",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\src\\js\\elo.js": {
+    "mtime": 1778685863.0524948,
+    "ast_hash": "18e32a07143f85e98f19b7255f004d6f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\src\\js\\firebase.js": {
+    "mtime": 1778686523.4458988,
+    "ast_hash": "69739af35af384e667d07a9133ede709",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\src\\js\\gallery.js": {
+    "mtime": 1778684926.290191,
+    "ast_hash": "6a6b65671a7901768fabbbf3cd0cf819",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\src\\js\\listener-registry.js": {
+    "mtime": 1778684866.802597,
+    "ast_hash": "d20309be7d8e6e44eaa08cfb16086280",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\src\\js\\modal-manager.js": {
+    "mtime": 1778831797.945364,
+    "ast_hash": "ac340e713eb151954b9c634aaa53315b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\src\\js\\stats.js": {
+    "mtime": 1778745248.9136813,
+    "ast_hash": "354a371e99b5538c7d0b14b3523ee0c7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\src\\js\\tmdb.js": {
+    "mtime": 1778834107.3061767,
+    "ast_hash": "2adb6a158ed7b11ce8c446ba64dce543",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\src\\js\\ui.js": {
+    "mtime": 1778834175.2830436,
+    "ast_hash": "64b3b0659cadeb1a6a942df030c363de",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\src\\js\\utils.js": {
+    "mtime": 1778690341.5986135,
+    "ast_hash": "689731401ea751f07aa3428caa0cb35e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\index.html": {
+    "mtime": 1778831786.1452992,
+    "ast_hash": "94242c618aa9ef586ca7bb0079031e83",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\assets\\icons\\icon-192.png": {
+    "mtime": 1778514336.400417,
+    "ast_hash": "696b32e6013cd4eb9706e70959798d0e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\gjela\\OneDrive\\Documenti\\sebas-reviews\\assets\\icons\\icon-512.png": {
+    "mtime": 1778514172.6944222,
+    "ast_hash": "fe41eed4ea68dd2f1cb4551825da5011",
+    "semantic_hash": ""
+  }
+}

@@ -1,0 +1,419 @@
+/* =========================================
+   CARDS — Griglia film, Movie card, Spotlight, Raccomandazioni
+   ========================================= */
+
+/* --- EMPTY STATE --- */
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 4rem 2rem;
+    background: rgba(255,255,255,0.02);
+    border: 1px dashed #334155;
+    border-radius: 16px;
+    color: var(--text-muted);
+}
+
+.empty-state span {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+/* --- GRIGLIA FILM --- */
+.movie-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2rem;
+    padding: 2rem 5%;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+}
+
+main#app {
+    position: relative;
+}
+
+main#app::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 5%;
+    width: 90%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-gold), transparent);
+    opacity: 0.5;
+    z-index: 0;
+}
+
+.movie-grid::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.3), transparent);
+    opacity: 0.7;
+}
+
+.movie-grid::after {
+    content: '◆';
+    position: absolute;
+    top: -25px;
+    right: 5%;
+    font-size: 1.4rem;
+    color: var(--accent-gold);
+    opacity: 0.5;
+    text-shadow: 0 0 8px rgba(212, 175, 55, 0.6);
+}
+
+/* --- MOVIE CARD --- */
+.movie-card {
+    position: relative;
+    background: linear-gradient(180deg,
+        rgba(28, 30, 38, 0.72) 0%,
+        rgba(18, 20, 26, 0.85) 100%);
+    border-radius: 18px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+        0 10px 28px rgba(0, 0, 0, 0.55),
+        0 2px 6px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition:
+        transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1),
+        border-color 0.3s ease,
+        box-shadow 0.4s ease;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: cardAppear 0.4s ease-out;
+    /* Mobile: feedback nativo "press" senza highlight grigio. */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+/* Tap feedback su touch device — sostituisce :hover che non funziona. */
+@media (hover: none) and (pointer: coarse) {
+    .movie-card:active {
+        transform: scale(0.97);
+        transition: transform 0.1s ease;
+    }
+}
+
+@keyframes cardAppear {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.movie-card:hover {
+    transform: translateY(-6px) scale(1.015);
+    border-color: rgba(212, 175, 55, 0.45);
+    box-shadow:
+        0 22px 44px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(212, 175, 55, 0.18),
+        0 0 32px rgba(212, 175, 55, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.movie-card.removing {
+    opacity: 0;
+    transform: scale(0.8);
+}
+
+/* Subtle top sheen */
+.movie-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 50%;
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.02) 50%,
+        transparent 100%);
+    pointer-events: none;
+    z-index: 2;
+    border-radius: inherit;
+    opacity: 0.7;
+}
+
+/* Gold corner accent that lights up on hover */
+.movie-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle at top left,
+        rgba(212, 175, 55, 0.18) 0%,
+        transparent 70%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+    z-index: 2;
+}
+.movie-card:hover::after { opacity: 1; }
+
+.poster-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.watchlist-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 6px;
+    font-size: 0.85rem;
+    line-height: 1;
+    color: var(--accent-gold, #d4af37);
+    background: rgba(10, 12, 18, 0.72);
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    border-radius: 999px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    letter-spacing: 0.02em;
+}
+
+.poster-container::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 55%;
+    background: linear-gradient(to top,
+        rgba(18, 20, 26, 0.95) 0%,
+        rgba(18, 20, 26, 0.6) 35%,
+        transparent 100%);
+    pointer-events: none;
+}
+
+.poster-container img {
+    width: 100%;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+                filter 0.4s ease;
+    filter: brightness(0.96) saturate(1.05);
+}
+
+.movie-card:hover .poster-container img {
+    transform: scale(1.06);
+    filter: brightness(1.02) saturate(1.15);
+}
+
+.card-info {
+    padding: 0.95rem 1.05rem 1.05rem;
+    position: relative;
+    z-index: 1;
+}
+
+.card-info h3 {
+    margin: 0;
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #f5f0e8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.3s ease;
+}
+
+.movie-card:hover .card-info h3 {
+    color: var(--accent-gold);
+}
+
+.quick-tools {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.quick-tools > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 9px;
+    background: linear-gradient(135deg,
+        rgba(212, 175, 55, 0.16),
+        rgba(212, 175, 55, 0.08));
+    border: 1px solid rgba(212, 175, 55, 0.28);
+    border-radius: 999px;
+    font-size: 0.78rem !important;
+    font-weight: 600;
+    color: var(--accent-gold) !important;
+    letter-spacing: 0.02em;
+}
+
+/* --- DRAG & DROP --- */
+.sortable-card {
+    cursor: grab;
+}
+
+.sortable-card:active {
+    cursor: grabbing;
+}
+
+.sortable-ghost {
+    opacity: 0.4;
+    background: var(--accent);
+}
+
+/* --- SPOTLIGHT --- */
+.spotlight-section {
+    position: relative;
+    min-height: 450px;
+    display: flex;
+    align-items: flex-end;
+    padding: 4rem 5%;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0 0 30px 30px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+    isolation: isolate;
+}
+
+.spotlight-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center 25%;
+    z-index: 0;
+    /* Reveal dark posters: strong but capped brightness boost. */
+    filter: brightness(1.38) contrast(1.02) saturate(1.16);
+    transform: scale(1.04); /* avoid edge halo from filter */
+    transition: filter 0.6s ease-out, transform 0.6s ease-out;
+}
+
+/* Cinematic text protection: localised at the bottom only.
+   Sides and top are essentially untouched so the artwork breathes. */
+.spotlight-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        /* Bottom protective gradient (where the text lives) */
+        linear-gradient(
+            to top,
+            rgba(8, 10, 14, 0.7) 0%,
+            rgba(8, 10, 14, 0.45) 22%,
+            rgba(8, 10, 14, 0.12) 50%,
+            transparent 75%
+        ),
+        /* Whisper of left-side shading to anchor the text column */
+        linear-gradient(
+            to right,
+            rgba(8, 10, 14, 0.18) 0%,
+            rgba(8, 10, 14, 0.02) 35%,
+            transparent 55%
+        ),
+        /* Very subtle vignette */
+        radial-gradient(
+            ellipse at 70% 30%,
+            transparent 0%,
+            rgba(0, 0, 0, 0.12) 100%
+        );
+}
+
+.spotlight-content {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+}
+
+.spotlight-content h4 {
+    display: inline-block;
+    margin: 0 0 0.6rem;
+    padding-bottom: 4px;
+    font-size: 0.72rem !important;
+    letter-spacing: 0.32em;
+    border-bottom: 1px solid color-mix(in srgb, var(--accent-gold, #d4af37) 55%, transparent);
+}
+
+.spotlight-content h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 3.5rem;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: 0.01em;
+    margin: 0.4rem 0 0.6rem;
+    color: #f7f1e6;
+    /* Quad shadow: hard-deep + soft-wide + bright-rim → leggibile su sfondo chiaro */
+    text-shadow:
+        0 2px 2px rgba(0,0,0,0.95),
+        0 4px 12px rgba(0,0,0,0.85),
+        0 8px 28px rgba(0,0,0,0.55),
+        0 0 1px rgba(0,0,0,0.6);
+}
+
+.spotlight-content p {
+    font-size: 1.05rem;
+    color: rgba(245, 240, 232, 0.92);
+    margin: 0;
+    letter-spacing: 0.015em;
+    text-shadow:
+        0 1px 2px rgba(0,0,0,0.9),
+        0 2px 10px rgba(0,0,0,0.75);
+}
+
+/* --- RACCOMANDAZIONI --- */
+.recommendations-container {
+    padding: 0 5% 1rem 5%;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10, 12, 16, 0.5);
+}
+
+.recommend-title {
+    font-family: 'Cinzel', serif;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+}
+
+/* --- CARD AWARDS MINI --- */
+.card-awards-mini {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0 4px 0;
+}
+
+.award-badge {
+    background: rgba(212, 175, 55, 0.12);
+    border: 1px solid var(--accent-gold);
+    color: var(--accent-gold);
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
+.card-awards span {
+    background: rgba(196,48,43,0.2);
+    border: 1px solid var(--accent);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    margin-right: 6px;
+}
